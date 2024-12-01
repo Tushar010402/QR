@@ -189,18 +189,27 @@
     }
 
     // Handle expiry date checkbox change
-    document.getElementById('use_default_expiry').addEventListener('change', function(e) {
+    function toggleExpiryDateField() {
+        const useDefaultExpiry = document.getElementById('use_default_expiry');
         const customExpiryContainer = document.getElementById('custom_expiry_container');
         const expiryDateInput = document.getElementById('expiry_date');
         
-        if (e.target.checked) {
+        if (useDefaultExpiry.checked) {
             customExpiryContainer.style.display = 'none';
             expiryDateInput.required = false;
         } else {
             customExpiryContainer.style.display = 'block';
             expiryDateInput.required = true;
+            // Set default value to today if empty
+            if (!expiryDateInput.value) {
+                expiryDateInput.value = new Date().toISOString().split('T')[0];
+            }
         }
-    });
+    }
+
+    // Add event listener and call it initially
+    document.getElementById('use_default_expiry').addEventListener('change', toggleExpiryDateField);
+    toggleExpiryDateField();
 
     function processBarcodeInput() {
         const barcode = document.getElementById('barcode_input').value;
@@ -242,9 +251,16 @@
         fetch('{% url "process_scanned_barcode" %}', {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: formData
+            body: JSON.stringify({
+                barcode_number: barcode,
+                trf_id: trfId,
+                use_default_expiry: useDefaultExpiry,
+                expiry_date: !useDefaultExpiry ? expiryDate : null,
+                tube_data: tubeData
+            })
         })
         .then(response => response.json())
         .then(data => {
