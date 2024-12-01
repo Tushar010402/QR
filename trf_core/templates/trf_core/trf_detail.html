@@ -22,14 +22,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData(form);
         const data = {
             barcode_number: formData.get('barcode_number'),
-            trf_id: formData.get('trf_id'),
-            tube_data: {
-                sample_type: formData.get('sample_type'),
-                volume: formData.get('volume'),
-                collection_date: formData.get('collection_date'),
-                notes: formData.get('notes')
-            }
+            trf_id: formData.get('trf_id')
         };
+
+        // Add expiry date if using custom expiry
+        if (!formData.get('use_default_expiry')) {
+            data.expiry_date = formData.get('expiry_date');
+        }
 
         try {
             const response = await fetch(form.action, {
@@ -56,29 +55,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Handle barcode scanner input
-    let lastScan = '';
-    let scanTimer = null;
+    // Handle custom expiry checkbox
+    const useDefaultExpiry = document.getElementById('useDefaultExpiry');
+    const customExpiryDiv = document.getElementById('customExpiryDiv');
+    const customExpiry = document.getElementById('customExpiry');
 
-    barcodeInput.addEventListener('keypress', function(e) {
-        // If Enter is pressed and there's a value, submit the form
-        if (e.key === 'Enter' && this.value) {
-            e.preventDefault();
-            form.dispatchEvent(new Event('submit'));
+    useDefaultExpiry.addEventListener('change', function() {
+        customExpiryDiv.style.display = this.checked ? 'none' : 'block';
+        if (!this.checked) {
+            customExpiry.focus();
         }
     });
-
-    barcodeInput.addEventListener('input', function(e) {
-        clearTimeout(scanTimer);
-        lastScan = this.value;
-        
-        // Set a timer to detect end of barcode scanner input
-        scanTimer = setTimeout(() => {
-            if (lastScan === this.value && this.value) {
-                // Auto-submit if the value hasn't changed for 100ms
-                form.dispatchEvent(new Event('submit'));
-            }
-        }, 100);
     });
 });
 </script>
@@ -218,20 +205,16 @@ document.addEventListener('DOMContentLoaded', function() {
                                                    placeholder="Scan barcode or enter number" autofocus>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="sampleType" class="form-label">Sample Type</label>
-                                            <input type="text" class="form-control" id="sampleType" name="sample_type">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="useDefaultExpiry" name="use_default_expiry" checked>
+                                                <label class="form-check-label" for="useDefaultExpiry">
+                                                    Use TRF expiry date ({{ trf.expiry_date|date:"Y-m-d" }})
+                                                </label>
+                                            </div>
                                         </div>
-                                        <div class="mb-3">
-                                            <label for="volume" class="form-label">Volume</label>
-                                            <input type="text" class="form-control" id="volume" name="volume">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label for="collectionDate" class="form-label">Collection Date</label>
-                                            <input type="date" class="form-control" id="collectionDate" name="collection_date">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label for="notes" class="form-label">Notes</label>
-                                            <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+                                        <div class="mb-3" id="customExpiryDiv" style="display: none;">
+                                            <label for="customExpiry" class="form-label">Custom Expiry Date</label>
+                                            <input type="date" class="form-control" id="customExpiry" name="expiry_date">
                                         </div>
                                     </form>
                                 </div>
