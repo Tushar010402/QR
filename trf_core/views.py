@@ -8,10 +8,13 @@ from django.views.generic import ListView
 from django.contrib import messages
 from django.http import JsonResponse
 from django.urls import reverse
-from .models import TRF, Barcode
+from .models import TRF, Barcode, BarcodeInventory
 from .serializers import TRFSerializer, BarcodeSerializer
 from django.utils import timezone
 from datetime import datetime
+import json
+from django.views.decorators.csrf import csrf_exempt
+from django.core.exceptions import ValidationError
 
 class IsAuthenticatedOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -134,3 +137,133 @@ def trf_detail(request, pk):
 def barcode_detail(request, pk):
     barcode = get_object_or_404(Barcode, pk=pk)
     return render(request, 'trf_core/barcode_detail.html', {'barcode': barcode})
+
+@login_required
+def barcode_inventory_list(request):
+    inventories = BarcodeInventory.objects.all().order_by('-created_at')
+    return render(request, 'trf_core/barcode_inventory_list.html', {'inventories': inventories})
+
+@login_required
+def barcode_inventory_create(request):
+    if request.method == 'POST':
+        try:
+            batch_number = request.POST.get('batch_number')
+            prefix = request.POST.get('prefix', '')
+            start_number = int(request.POST.get('start_number'))
+            end_number = int(request.POST.get('end_number'))
+            notes = request.POST.get('notes', '')
+
+            inventory = BarcodeInventory.objects.create(
+                batch_number=batch_number,
+                prefix=prefix,
+                start_number=start_number,
+                end_number=end_number,
+                notes=notes,
+                created_by=request.user
+            )
+            messages.success(request, f'Successfully created {end_number - start_number + 1} barcodes')
+            return redirect('barcode_inventory_list')
+        except ValidationError as e:
+            messages.error(request, str(e))
+        except Exception as e:
+            messages.error(request, f'Error creating barcodes: {str(e)}')
+    
+    return render(request, 'trf_core/barcode_inventory_form.html')
+
+@login_required
+def barcode_scanner(request):
+    """View for scanning barcodes and assigning them to TRFs"""
+    return render(request, 'trf_core/barcode_scanner.html')
+
+@csrf_exempt
+@login_required
+def process_scanned_barcode(request):
+    """API endpoint for processing scanned barcodes"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            barcode_number = data.get('barcode_number')
+            trf_id = data.get('trf_id')
+            tube_data = data.get('tube_data', {})
+
+            barcode = get_object_or_404(Barcode, barcode_number=barcode_number)
+            trf = get_object_or_404(TRF, id=trf_id)
+
+            if not barcode.is_available:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'This barcode is already in use'
+                })
+
+            # Assign barcode to TRF
+            barcode.trf = trf
+            barcode.is_available = False
+            barcode.assigned_at = timezone.now()
+            barcode.assigned_by = request.user
+            barcode.tube_data = tube_data
+            barcode.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Barcode successfully assigned to TRF',
+                'barcode_id': barcode.id
+            })
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': str(e)
+            })
+
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+@login_required
+def available_barcodes(request):
+    """View for listing available pre-printed barcodes"""
+    barcodes = Barcode.objects.filter(
+        barcode_type='pre_printed',
+        is_available=True
+    ).order_by('batch_number', 'barcode_number')
+    
+    return render(request, 'trf_core/available_barcodes.html', {'barcodes': barcodes})
+
+@login_required
+def assign_barcode(request, barcode_id):
+    """View for assigning a pre-printed barcode to a TRF"""
+    barcode = get_object_or_404(Barcode, id=barcode_id)
+    
+    if request.method == 'POST':
+        trf_id = request.POST.get('trf_id')
+        tube_data = {
+            'sample_type': request.POST.get('sample_type'),
+            'volume': request.POST.get('volume'),
+            'collection_date': request.POST.get('collection_date'),
+            'notes': request.POST.get('notes')
+        }
+        
+        try:
+            trf = get_object_or_404(TRF, id=trf_id)
+            
+            if not barcode.is_available:
+                messages.error(request, 'This barcode is already in use')
+                return redirect('available_barcodes')
+            
+            barcode.trf = trf
+            barcode.is_available = False
+            barcode.assigned_at = timezone.now()
+            barcode.assigned_by = request.user
+            barcode.tube_data = tube_data
+            barcode.save()
+            
+            messages.success(request, 'Barcode successfully assigned to TRF')
+            return redirect('trf_detail', pk=trf.id)
+            
+        except Exception as e:
+            messages.error(request, f'Error assigning barcode: {str(e)}')
+            return redirect('available_barcodes')
+    
+    trfs = TRF.objects.filter(created_by=request.user).order_by('-created_at')
+    return render(request, 'trf_core/assign_barcode.html', {
+        'barcode': barcode,
+        'trfs': trfs
+    })

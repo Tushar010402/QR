@@ -1,0 +1,105 @@
+{% extends 'trf_core/base.html' %}
+
+{% block title %}Available Barcodes{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Available Pre-printed Barcodes</h2>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'barcode_scanner' %}" class="btn btn-primary">
+                <i class="fas fa-camera"></i> Scan Barcode
+            </a>
+            <a href="{% url 'barcode_inventory_list' %}" class="btn btn-secondary">
+                <i class="fas fa-boxes"></i> Inventory
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if barcodes %}
+        <div class="row">
+            <div class="col-md-3 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Filter Barcodes</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="filterForm">
+                            <div class="mb-3">
+                                <label for="batch" class="form-label">Batch Number</label>
+                                <select class="form-select" id="batch" name="batch">
+                                    <option value="">All Batches</option>
+                                    {% for batch in barcodes|dictsort:"batch_number"|unique:"batch_number" %}
+                                        <option value="{{ batch.batch_number }}"
+                                            {% if request.GET.batch == batch.batch_number %}selected{% endif %}>
+                                            {{ batch.batch_number }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-9">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Barcode</th>
+                                <th>Number</th>
+                                <th>Batch</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for barcode in barcodes %}
+                                <tr>
+                                    <td>
+                                        <img src="{{ barcode.barcode_image.url }}" alt="Barcode" style="height: 30px;">
+                                    </td>
+                                    <td>{{ barcode.barcode_number }}</td>
+                                    <td>{{ barcode.batch_number }}</td>
+                                    <td>{{ barcode.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'assign_barcode' barcode_id=barcode.id %}" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="fas fa-link"></i> Assign to TRF
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            No available pre-printed barcodes found. Create a new batch in the inventory.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('batch').addEventListener('change', function() {
+        document.getElementById('filterForm').submit();
+    });
+</script>
+{% endblock %}

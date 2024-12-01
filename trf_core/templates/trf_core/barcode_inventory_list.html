@@ -1,0 +1,76 @@
+{% extends 'trf_core/base.html' %}
+
+{% block title %}Barcode Inventory{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Barcode Inventory</h2>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'barcode_inventory_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create New Batch
+            </a>
+            <a href="{% url 'available_barcodes' %}" class="btn btn-success">
+                <i class="fas fa-barcode"></i> Available Barcodes
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if inventories %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Batch Number</th>
+                        <th>Prefix</th>
+                        <th>Range</th>
+                        <th>Created By</th>
+                        <th>Created At</th>
+                        <th>Available</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inventory in inventories %}
+                        <tr>
+                            <td>{{ inventory.batch_number }}</td>
+                            <td>{{ inventory.prefix }}</td>
+                            <td>{{ inventory.start_number }} - {{ inventory.end_number }}</td>
+                            <td>{{ inventory.created_by.username }}</td>
+                            <td>{{ inventory.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                {% with available_count=inventory.barcode_set.filter.is_available=True.count %}
+                                    <span class="badge bg-{% if available_count > 0 %}success{% else %}danger{% endif %}">
+                                        {{ available_count }} / {{ inventory.end_number|add:-inventory.start_number|add:1 }}
+                                    </span>
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <a href="{% url 'available_barcodes' %}?batch={{ inventory.batch_number }}" 
+                                   class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i> View Barcodes
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            No barcode inventory found. Create your first batch of barcodes!
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

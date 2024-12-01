@@ -22,8 +22,18 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'trf_list' %}">TRFs</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'barcode_list' %}">Barcodes</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="barcodeDropdown" role="button" 
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            Barcodes
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="barcodeDropdown">
+                            <li><a class="dropdown-item" href="{% url 'barcode_list' %}">All Barcodes</a></li>
+                            <li><a class="dropdown-item" href="{% url 'barcode_inventory_list' %}">Barcode Inventory</a></li>
+                            <li><a class="dropdown-item" href="{% url 'available_barcodes' %}">Available Barcodes</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'barcode_scanner' %}">Scan Barcode</a></li>
+                        </ul>
                     </li>
                 </ul>
                 <ul class="navbar-nav">

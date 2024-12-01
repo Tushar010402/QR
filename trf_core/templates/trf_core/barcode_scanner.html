@@ -1,0 +1,260 @@
+{% extends 'trf_core/base.html' %}
+
+{% block title %}Barcode Scanner{% endblock %}
+
+{% block extra_css %}
+<style>
+    #interactive.viewport {
+        position: relative;
+        width: 100%;
+        height: 300px;
+    }
+    #interactive.viewport > canvas, #interactive.viewport > video {
+        max-width: 100%;
+        width: 100%;
+    }
+    canvas.drawing, canvas.drawingBuffer {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Scan Barcode</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col">
+                            <select class="form-select" id="trf_select" required>
+                                <option value="">Select TRF</option>
+                                {% for trf in trfs %}
+                                    <option value="{{ trf.id }}">{{ trf.trf_number }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div id="interactive" class="viewport"></div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="input-group">
+                            <input type="text" id="barcode_input" class="form-control" 
+                                   placeholder="Scan or type barcode number">
+                            <button class="btn btn-primary" type="button" id="process_barcode">
+                                Process
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>Tube Information</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="sample_type" class="form-label">Sample Type</label>
+                                    <select class="form-select" id="sample_type">
+                                        <option value="blood">Blood</option>
+                                        <option value="urine">Urine</option>
+                                        <option value="tissue">Tissue</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="volume" class="form-label">Volume (ml)</label>
+                                    <input type="number" class="form-control" id="volume" step="0.1">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="collection_date" class="form-label">Collection Date</label>
+                            <input type="datetime-local" class="form-control" id="collection_date">
+                        </div>
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <div id="result_message"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recently Scanned</h5>
+                </div>
+                <div class="card-body">
+                    <div id="recent_scans">
+                        <!-- Recent scans will be added here dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+<script>
+    let quaggaStarted = false;
+
+    function startQuagga() {
+        if (quaggaStarted) return;
+        
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: document.querySelector("#interactive"),
+                constraints: {
+                    facingMode: "environment"
+                },
+            },
+            decoder: {
+                readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader", "upc_reader"]
+            }
+        }, function(err) {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            quaggaStarted = true;
+            Quagga.start();
+        });
+
+        Quagga.onDetected(function(result) {
+            var code = result.codeResult.code;
+            document.getElementById('barcode_input').value = code;
+            processBarcodeInput();
+        });
+    }
+
+    function stopQuagga() {
+        if (quaggaStarted) {
+            Quagga.stop();
+            quaggaStarted = false;
+        }
+    }
+
+    function showMessage(message, isError = false) {
+        const resultDiv = document.getElementById('result_message');
+        resultDiv.innerHTML = `
+            <div class="alert alert-${isError ? 'danger' : 'success'} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+    }
+
+    function addToRecentScans(barcode, success) {
+        const recentScans = document.getElementById('recent_scans');
+        const scanItem = document.createElement('div');
+        scanItem.className = `alert alert-${success ? 'success' : 'danger'} mb-2`;
+        scanItem.innerHTML = `
+            <small>${new Date().toLocaleTimeString()}</small><br>
+            ${barcode}
+        `;
+        recentScans.insertBefore(scanItem, recentScans.firstChild);
+        
+        // Keep only last 5 scans
+        while (recentScans.children.length > 5) {
+            recentScans.removeChild(recentScans.lastChild);
+        }
+    }
+
+    function processBarcodeInput() {
+        const barcode = document.getElementById('barcode_input').value;
+        const trfId = document.getElementById('trf_select').value;
+        
+        if (!barcode) {
+            showMessage('Please scan or enter a barcode', true);
+            return;
+        }
+        
+        if (!trfId) {
+            showMessage('Please select a TRF', true);
+            return;
+        }
+
+        const tubeData = {
+            sample_type: document.getElementById('sample_type').value,
+            volume: document.getElementById('volume').value,
+            collection_date: document.getElementById('collection_date').value,
+            notes: document.getElementById('notes').value
+        };
+
+        fetch('{% url "process_scanned_barcode" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                barcode_number: barcode,
+                trf_id: trfId,
+                tube_data: tubeData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            showMessage(data.message, !data.success);
+            addToRecentScans(barcode, data.success);
+            if (data.success) {
+                document.getElementById('barcode_input').value = '';
+                document.getElementById('volume').value = '';
+                document.getElementById('notes').value = '';
+            }
+        })
+        .catch(error => {
+            showMessage('Error processing barcode: ' + error, true);
+            addToRecentScans(barcode, false);
+        });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Event Listeners
+    document.getElementById('process_barcode').addEventListener('click', processBarcodeInput);
+    document.getElementById('barcode_input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            processBarcodeInput();
+        }
+    });
+
+    // Set default collection date to now
+    document.getElementById('collection_date').value = new Date().toISOString().slice(0, 16);
+
+    // Start scanner
+    startQuagga();
+
+    // Stop scanner when leaving page
+    window.addEventListener('beforeunload', stopQuagga);
+</script>
+{% endblock %}
