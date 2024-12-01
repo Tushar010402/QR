@@ -1,0 +1,93 @@
+{% extends 'trf_core/base.html' %}
+
+{% block title %}Create Barcode Batch{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Create New Barcode Batch</h4>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="batch_number" class="form-label">Batch Number</label>
+                            <input type="text" class="form-control" id="batch_number" name="batch_number" required>
+                            <div class="form-text">A unique identifier for this batch of barcodes</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="prefix" class="form-label">Prefix (Optional)</label>
+                            <input type="text" class="form-control" id="prefix" name="prefix">
+                            <div class="form-text">Optional prefix for all barcodes in this batch</div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="start_number" class="form-label">Start Number</label>
+                                    <input type="number" class="form-control" id="start_number" name="start_number" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="end_number" class="form-label">End Number</label>
+                                    <input type="number" class="form-control" id="end_number" name="end_number" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> This will create <span id="barcodeCount">0</span> barcodes
+                            with numbers from <span id="previewStart">-</span> to <span id="previewEnd">-</span>
+                        </div>
+
+                        <div class="text-end">
+                            <a href="{% url 'barcode_inventory_list' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Create Batch</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function updatePreview() {
+        const startNum = parseInt(document.getElementById('start_number').value) || 0;
+        const endNum = parseInt(document.getElementById('end_number').value) || 0;
+        const prefix = document.getElementById('prefix').value || '';
+        
+        if (startNum && endNum) {
+            const count = endNum - startNum + 1;
+            document.getElementById('barcodeCount').textContent = count > 0 ? count : 0;
+            document.getElementById('previewStart').textContent = `${prefix}${String(startNum).padStart(8, '0')}`;
+            document.getElementById('previewEnd').textContent = `${prefix}${String(endNum).padStart(8, '0')}`;
+        }
+    }
+
+    document.getElementById('start_number').addEventListener('input', updatePreview);
+    document.getElementById('end_number').addEventListener('input', updatePreview);
+    document.getElementById('prefix').addEventListener('input', updatePreview);
+</script>
+{% endblock %}
