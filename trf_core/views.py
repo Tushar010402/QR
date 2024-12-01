@@ -189,8 +189,9 @@ def process_scanned_barcode(request):
             # Get form data
             barcode_number = request.POST.get('barcode_number')
             trf_id = request.POST.get('trf_id')
-            use_default_expiry = request.POST.get('use_default_expiry') == 'on'
+            use_default_expiry = request.POST.get('use_default_expiry') == 'true'
             custom_expiry = request.POST.get('expiry_date')
+            tube_data = json.loads(request.POST.get('tube_data', '{}'))
 
             # Validate required fields
             if not barcode_number or not trf_id:

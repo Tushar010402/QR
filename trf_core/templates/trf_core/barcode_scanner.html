@@ -81,6 +81,18 @@
                             <input type="datetime-local" class="form-control" id="collection_date">
                         </div>
                         <div class="mb-3">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="use_default_expiry" checked>
+                                <label class="form-check-label" for="use_default_expiry">
+                                    Use TRF's expiry date
+                                </label>
+                            </div>
+                            <div id="custom_expiry_container" style="display: none;">
+                                <label for="expiry_date" class="form-label">Custom Expiry Date</label>
+                                <input type="date" class="form-control" id="expiry_date">
+                            </div>
+                        </div>
+                        <div class="mb-3">
                             <label for="notes" class="form-label">Notes</label>
                             <textarea class="form-control" id="notes" rows="2"></textarea>
                         </div>
@@ -176,9 +188,25 @@
         }
     }
 
+    // Handle expiry date checkbox change
+    document.getElementById('use_default_expiry').addEventListener('change', function(e) {
+        const customExpiryContainer = document.getElementById('custom_expiry_container');
+        const expiryDateInput = document.getElementById('expiry_date');
+        
+        if (e.target.checked) {
+            customExpiryContainer.style.display = 'none';
+            expiryDateInput.required = false;
+        } else {
+            customExpiryContainer.style.display = 'block';
+            expiryDateInput.required = true;
+        }
+    });
+
     function processBarcodeInput() {
         const barcode = document.getElementById('barcode_input').value;
         const trfId = document.getElementById('trf_select').value;
+        const useDefaultExpiry = document.getElementById('use_default_expiry').checked;
+        const expiryDate = document.getElementById('expiry_date').value;
         
         if (!barcode) {
             showMessage('Please scan or enter a barcode', true);
@@ -190,6 +218,11 @@
             return;
         }
 
+        if (!useDefaultExpiry && !expiryDate) {
+            showMessage('Please select a custom expiry date', true);
+            return;
+        }
+
         const tubeData = {
             sample_type: document.getElementById('sample_type').value,
             volume: document.getElementById('volume').value,
@@ -197,26 +230,41 @@
             notes: document.getElementById('notes').value
         };
 
+        const formData = new FormData();
+        formData.append('barcode_number', barcode);
+        formData.append('trf_id', trfId);
+        formData.append('use_default_expiry', useDefaultExpiry);
+        if (!useDefaultExpiry) {
+            formData.append('expiry_date', expiryDate);
+        }
+        formData.append('tube_data', JSON.stringify(tubeData));
+
         fetch('{% url "process_scanned_barcode" %}', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({
-                barcode_number: barcode,
-                trf_id: trfId,
-                tube_data: tubeData
-            })
+            body: formData
         })
         .then(response => response.json())
         .then(data => {
             showMessage(data.message, !data.success);
             addToRecentScans(barcode, data.success);
             if (data.success) {
+                // Clear form fields
                 document.getElementById('barcode_input').value = '';
                 document.getElementById('volume').value = '';
                 document.getElementById('notes').value = '';
+                document.getElementById('collection_date').value = new Date().toISOString().slice(0, 16);
+                document.getElementById('use_default_expiry').checked = true;
+                document.getElementById('expiry_date').value = '';
+                document.getElementById('custom_expiry_container').style.display = 'none';
+                
+                // Close modal if it exists
+                const modal = bootstrap.Modal.getInstance(document.querySelector('.modal'));
+                if (modal) {
+                    modal.hide();
+                }
             }
         })
         .catch(error => {
