@@ -16,27 +16,56 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Handle form submission
+    // Function to show error message
+    function showError(message) {
+        const errorDiv = document.getElementById('errorMessage');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+
+    // Function to hide error message
+    function hideError() {
+        const errorDiv = document.getElementById('errorMessage');
+        errorDiv.style.display = 'none';
+    }
+
+    // Function to validate form
+    function validateForm(formData) {
+        const barcode = formData.get('barcode_number');
+        const useDefault = formData.get('use_default_expiry') === 'on';
+        const customExpiry = formData.get('expiry_date');
+
+        if (!barcode) {
+            showError('Please enter a barcode number');
+            return false;
+        }
+
+        if (!useDefault && !customExpiry) {
+            showError('Please select a custom expiry date');
+            return false;
+        }
+
+        return true;
+    }
+
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
+        hideError();
 
         const formData = new FormData(form);
-        const data = new URLSearchParams();
-        data.append('barcode_number', formData.get('barcode_number'));
-        data.append('trf_id', formData.get('trf_id'));
-
-        // Add expiry date if using custom expiry
-        if (!formData.get('use_default_expiry')) {
-            data.append('expiry_date', formData.get('expiry_date'));
+        
+        // Validate form
+        if (!validateForm(formData)) {
+            return;
         }
 
         try {
             const response = await fetch(form.action, {
                 method: 'POST',
+                body: formData,
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-                },
-                body: data
+                }
             });
 
             const result = await response.json();
@@ -200,11 +229,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <form id="addBarcodeForm" method="POST" action="{% url 'process_scanned_barcode' %}">
                                         {% csrf_token %}
                                         <input type="hidden" name="trf_id" value="{{ trf.id }}">
+                                        
+                                        <!-- Barcode Input -->
                                         <div class="mb-3">
-                                            <label for="barcodeInput" class="form-label">Scan or Enter Barcode</label>
+                                            <label for="barcodeInput" class="form-label">Scan or Enter Barcode <span class="text-danger">*</span></label>
                                             <input type="text" class="form-control" id="barcodeInput" name="barcode_number" 
-                                                   placeholder="Scan barcode or enter number" autofocus>
+                                                   placeholder="Scan barcode or enter number" required autofocus>
                                         </div>
+
+                                        <!-- Expiry Date Options -->
                                         <div class="mb-3">
                                             <div class="form-check">
                                                 <input class="form-check-input" type="checkbox" id="useDefaultExpiry" name="use_default_expiry" checked>
@@ -213,10 +246,17 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 </label>
                                             </div>
                                         </div>
+
+                                        <!-- Custom Expiry Date (hidden by default) -->
                                         <div class="mb-3" id="customExpiryDiv" style="display: none;">
-                                            <label for="customExpiry" class="form-label">Custom Expiry Date</label>
-                                            <input type="date" class="form-control" id="customExpiry" name="expiry_date">
+                                            <label for="customExpiry" class="form-label">Custom Expiry Date <span class="text-danger">*</span></label>
+                                            <input type="date" class="form-control" id="customExpiry" name="expiry_date"
+                                                   min="{{ trf.created_at|date:'Y-m-d' }}">
+                                            <div class="form-text">Select a date on or after the TRF creation date.</div>
                                         </div>
+
+                                        <!-- Error Message Display -->
+                                        <div class="alert alert-danger" id="errorMessage" style="display: none;"></div>
                                     </form>
                                 </div>
                                 <div class="modal-footer">
