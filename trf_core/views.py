@@ -141,6 +141,11 @@ def barcode_detail(request, pk):
 @login_required
 def barcode_inventory_list(request):
     inventories = BarcodeInventory.objects.all().order_by('-created_at')
+    for inventory in inventories:
+        inventory.available_count = Barcode.objects.filter(
+            batch_number=inventory.batch_number,
+            is_available=True
+        ).count()
     return render(request, 'trf_core/barcode_inventory_list.html', {'inventories': inventories})
 
 @login_required
@@ -223,9 +228,19 @@ def available_barcodes(request):
     barcodes = Barcode.objects.filter(
         barcode_type='pre_printed',
         is_available=True
-    ).order_by('batch_number', 'barcode_number')
+    )
     
-    return render(request, 'trf_core/available_barcodes.html', {'barcodes': barcodes})
+    # Filter by batch if specified
+    batch = request.GET.get('batch')
+    if batch:
+        barcodes = barcodes.filter(batch_number=batch)
+    
+    barcodes = barcodes.order_by('batch_number', 'barcode_number')
+    
+    return render(request, 'trf_core/available_barcodes.html', {
+        'barcodes': barcodes,
+        'selected_batch': batch
+    })
 
 @login_required
 def assign_barcode(request, barcode_id):
