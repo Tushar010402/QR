@@ -50,7 +50,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
-        hideError();
+
+        // Get submit button and spinner
+        const submitButton = document.getElementById('submitButton');
+        const spinner = submitButton.querySelector('.spinner-border');
+        
+        // Hide any existing messages
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
 
         const formData = new FormData(form);
         
@@ -60,6 +67,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         try {
+            // Disable submit button and show spinner
+            submitButton.disabled = true;
+            spinner.classList.remove('d-none');
+
             const response = await fetch(form.action, {
                 method: 'POST',
                 body: formData,
@@ -71,15 +82,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
 
             if (result.success) {
-                // Show success message and reload page
-                alert('Barcode successfully added to TRF');
-                location.reload();
+                showSuccess('Barcode successfully added to TRF');
             } else {
-                // Show error message
-                alert('Error: ' + result.message);
+                showError(result.message || 'Error adding barcode');
             }
         } catch (error) {
-            alert('Error adding barcode: ' + error.message);
+            showError('Error adding barcode. Please try again.');
+        } finally {
+            // Re-enable submit button and hide spinner
+            submitButton.disabled = false;
+            spinner.classList.add('d-none');
         }
     });
 
@@ -87,15 +99,50 @@ document.addEventListener('DOMContentLoaded', function() {
     const useDefaultExpiry = document.getElementById('useDefaultExpiry');
     const customExpiryDiv = document.getElementById('customExpiryDiv');
     const customExpiry = document.getElementById('customExpiry');
+    const errorDiv = document.getElementById('errorMessage');
+    const successDiv = document.getElementById('successMessage');
+    const modal = document.getElementById('addBarcodeModal');
+    const bsModal = new bootstrap.Modal(modal);
 
-    useDefaultExpiry.addEventListener('change', function() {
-        if (this.checked) {
+    // Function to show success message
+    function showSuccess(message) {
+        successDiv.textContent = message;
+        successDiv.style.display = 'block';
+        errorDiv.style.display = 'none';
+        
+        // Clear form and close modal after 1.5 seconds
+        setTimeout(() => {
+            form.reset();
+            bsModal.hide();
+            successDiv.style.display = 'none';
+            location.reload(); // Refresh to show new barcode
+        }, 1500);
+    }
+
+    // Function to show error message
+    function showError(message) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        successDiv.style.display = 'none';
+    }
+
+    // Function to toggle custom expiry date field
+    function toggleCustomExpiry() {
+        if (useDefaultExpiry.checked) {
             customExpiryDiv.style.display = 'none';
+            customExpiry.removeAttribute('required');
         } else {
             customExpiryDiv.style.display = 'block';
+            customExpiry.setAttribute('required', 'required');
             customExpiry.focus();
         }
-    });
+    }
+
+    // Initial setup
+    toggleCustomExpiry();
+
+    // Handle checkbox change
+    useDefaultExpiry.addEventListener('change', toggleCustomExpiry);
     });
 });
 </script>
@@ -255,13 +302,17 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <div class="form-text">Select a date on or after the TRF creation date.</div>
                                         </div>
 
-                                        <!-- Error Message Display -->
-                                        <div class="alert alert-danger" id="errorMessage" style="display: none;"></div>
+                                        <!-- Message Display -->
+                                        <div class="alert alert-danger mb-3" id="errorMessage" style="display: none;"></div>
+                                        <div class="alert alert-success mb-3" id="successMessage" style="display: none;"></div>
                                     </form>
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                    <button type="submit" form="addBarcodeForm" class="btn btn-primary">Add Barcode</button>
+                                    <button type="submit" form="addBarcodeForm" class="btn btn-primary" id="submitButton">
+                                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                        Add Barcode
+                                    </button>
                                 </div>
                             </div>
                         </div>
