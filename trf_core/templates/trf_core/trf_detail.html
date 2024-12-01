@@ -40,9 +40,22 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
 
-        if (!useDefault && !customExpiry) {
-            showError('Please select a custom expiry date');
-            return false;
+        if (!useDefault) {
+            if (!customExpiry) {
+                showError('Please select a custom expiry date');
+                customExpiry.focus();
+                return false;
+            }
+            
+            // Validate expiry date is not in the past
+            const selectedDate = new Date(customExpiry);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (selectedDate < today) {
+                showError('Expiry date cannot be in the past');
+                return false;
+            }
         }
 
         return true;
@@ -71,11 +84,20 @@ document.addEventListener('DOMContentLoaded', function() {
             submitButton.disabled = true;
             spinner.classList.remove('d-none');
 
-            const response = await fetch(form.action, {
+            // Create URL-encoded form data
+            const params = new URLSearchParams();
+            for (const [key, value] of formData.entries()) {
+                params.append(key, value);
+            }
+
+            const response = await fetch('/api/process-scan/', {
                 method: 'POST',
-                body: formData,
+                body: params,
                 headers: {
-                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+                    // Prevent redirect
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             });
 
@@ -83,8 +105,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (result.success) {
                 showSuccess('Barcode successfully added to TRF');
+                // Clear form and close modal after 1.5 seconds
+                setTimeout(() => {
+                    form.reset();
+                    bsModal.hide();
+                    // Refresh the page to show new barcode
+                    location.reload();
+                }, 1500);
             } else {
                 showError(result.message || 'Error adding barcode');
+                // If custom expiry date is required, show the field
+                if (result.message.includes('Custom expiry date is required')) {
+                    useDefaultExpiry.checked = false;
+                    toggleCustomExpiry();
+                }
             }
         } catch (error) {
             showError('Error adding barcode. Please try again.');
@@ -131,10 +165,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if (useDefaultExpiry.checked) {
             customExpiryDiv.style.display = 'none';
             customExpiry.removeAttribute('required');
+            customExpiry.value = ''; // Clear the value when hiding
         } else {
             customExpiryDiv.style.display = 'block';
             customExpiry.setAttribute('required', 'required');
-            customExpiry.focus();
+            
+            // Set min date to today
+            const today = new Date().toISOString().split('T')[0];
+            customExpiry.setAttribute('min', today);
+            
+            // Focus after a short delay to ensure the field is visible
+            setTimeout(() => customExpiry.focus(), 100);
         }
     }
 
@@ -142,7 +183,11 @@ document.addEventListener('DOMContentLoaded', function() {
     toggleCustomExpiry();
 
     // Handle checkbox change
-    useDefaultExpiry.addEventListener('change', toggleCustomExpiry);
+    useDefaultExpiry.addEventListener('change', function() {
+        toggleCustomExpiry();
+        // Clear any existing error messages when toggling
+        errorDiv.style.display = 'none';
+    });
     });
 });
 </script>
