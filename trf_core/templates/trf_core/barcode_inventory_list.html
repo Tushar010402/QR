@@ -50,9 +50,9 @@
                             <td>{{ inventory.created_by.username }}</td>
                             <td>{{ inventory.created_at|date:"Y-m-d H:i" }}</td>
                             <td>
-                                {% with available_count=inventory.barcode_set.filter.is_available=True.count %}
-                                    <span class="badge bg-{% if available_count > 0 %}success{% else %}danger{% endif %}">
-                                        {{ available_count }} / {{ inventory.end_number|add:-inventory.start_number|add:1 }}
+                                {% with total_count=inventory.end_number|add:-inventory.start_number|add:1 %}
+                                    <span class="badge bg-{% if inventory.available_count > 0 %}success{% else %}danger{% endif %}">
+                                        {{ inventory.available_count }} / {{ total_count }}
                                     </span>
                                 {% endwith %}
                             </td>

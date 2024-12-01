@@ -40,10 +40,11 @@
                                 <label for="batch" class="form-label">Batch Number</label>
                                 <select class="form-select" id="batch" name="batch">
                                     <option value="">All Batches</option>
-                                    {% for batch in barcodes|dictsort:"batch_number"|unique:"batch_number" %}
-                                        <option value="{{ batch.batch_number }}"
-                                            {% if request.GET.batch == batch.batch_number %}selected{% endif %}>
-                                            {{ batch.batch_number }}
+                                    {% regroup barcodes|dictsort:"batch_number" by batch_number as batch_list %}
+                                    {% for batch in batch_list %}
+                                        <option value="{{ batch.grouper }}"
+                                            {% if selected_batch == batch.grouper %}selected{% endif %}>
+                                            {{ batch.grouper }}
                                         </option>
                                     {% endfor %}
                                 </select>
