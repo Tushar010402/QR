@@ -20,24 +20,23 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
 
         const formData = new FormData(form);
-        const data = {
-            barcode_number: formData.get('barcode_number'),
-            trf_id: formData.get('trf_id')
-        };
+        const data = new URLSearchParams();
+        data.append('barcode_number', formData.get('barcode_number'));
+        data.append('trf_id', formData.get('trf_id'));
 
         // Add expiry date if using custom expiry
         if (!formData.get('use_default_expiry')) {
-            data.expiry_date = formData.get('expiry_date');
+            data.append('expiry_date', formData.get('expiry_date'));
         }
 
         try {
             const response = await fetch(form.action, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRFToken': formData.get('csrfmiddlewaretoken')
                 },
-                body: JSON.stringify(data)
+                body: data
             });
 
             const result = await response.json();
@@ -61,8 +60,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const customExpiry = document.getElementById('customExpiry');
 
     useDefaultExpiry.addEventListener('change', function() {
-        customExpiryDiv.style.display = this.checked ? 'none' : 'block';
-        if (!this.checked) {
+        if (this.checked) {
+            customExpiryDiv.style.display = 'none';
+        } else {
+            customExpiryDiv.style.display = 'block';
             customExpiry.focus();
         }
     });
