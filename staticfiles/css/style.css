@@ -1,0 +1,39 @@
+.navbar {
+    margin-bottom: 2rem;
+}
+
+.table img {
+    max-height: 50px;
+    width: auto;
+}
+
+.badge {
+    font-size: 0.9em;
+}
+
+.btn-sm {
+    margin: 0 0.2rem;
+}
+
+.modal-dialog {
+    max-width: 500px;
+}
+
+.form-label {
+    font-weight: 500;
+}
+
+.alert {
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.9em;
+    }
+    
+    .btn-sm {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.8em;
+    }
+}

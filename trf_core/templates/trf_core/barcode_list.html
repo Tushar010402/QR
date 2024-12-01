@@ -1,0 +1,68 @@
+{% extends 'trf_core/base.html' %}
+
+{% block title %}Barcode List{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2>Barcodes</h2>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Barcode Number</th>
+                <th>TRF Number</th>
+                <th>Created At</th>
+                <th>Expiry Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="barcodeTableBody">
+            <!-- Data will be loaded dynamically -->
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function loadBarcodes() {
+        fetch('/api/barcodes/')
+            .then(response => response.json())
+            .then(data => {
+                const tableBody = document.getElementById('barcodeTableBody');
+                tableBody.innerHTML = '';
+                
+                data.forEach(barcode => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${barcode.barcode_number}</td>
+                        <td>${barcode.trf}</td>
+                        <td>${new Date(barcode.created_at).toLocaleDateString()}</td>
+                        <td>${new Date(barcode.expiry_date).toLocaleDateString()}</td>
+                        <td>
+                            <span class="badge bg-${barcode.is_expired ? 'danger' : 'success'}">
+                                ${barcode.is_expired ? 'Expired' : 'Valid'}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="/barcode/${barcode.id}/" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <img src="${barcode.barcode_image}" alt="Barcode" style="height: 30px;">
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            });
+    }
+
+    // Load barcodes when the page loads
+    document.addEventListener('DOMContentLoaded', loadBarcodes);
+</script>
+{% endblock %}
