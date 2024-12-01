@@ -87,7 +87,7 @@
                                     Use TRF's expiry date
                                 </label>
                             </div>
-                            <div id="custom_expiry_container" style="display: none;">
+                            <div id="custom_expiry_container" class="mt-2" style="display: none;">
                                 <label for="expiry_date" class="form-label">Custom Expiry Date</label>
                                 <input type="date" class="form-control" id="expiry_date">
                             </div>
@@ -189,7 +189,7 @@
     }
 
     // Handle expiry date checkbox change
-    function toggleExpiryDateField() {
+    function toggleExpiryDateField(e) {
         const useDefaultExpiry = document.getElementById('use_default_expiry');
         const customExpiryContainer = document.getElementById('custom_expiry_container');
         const expiryDateInput = document.getElementById('expiry_date');
@@ -197,19 +197,23 @@
         if (useDefaultExpiry.checked) {
             customExpiryContainer.style.display = 'none';
             expiryDateInput.required = false;
+            expiryDateInput.value = '';  // Clear the value when using default
         } else {
             customExpiryContainer.style.display = 'block';
             expiryDateInput.required = true;
             // Set default value to today if empty
             if (!expiryDateInput.value) {
-                expiryDateInput.value = new Date().toISOString().split('T')[0];
+                const today = new Date();
+                today.setDate(today.getDate() + 30);  // Default to 30 days from today
+                expiryDateInput.value = today.toISOString().split('T')[0];
             }
         }
     }
 
     // Add event listener and call it initially
     document.getElementById('use_default_expiry').addEventListener('change', toggleExpiryDateField);
-    toggleExpiryDateField();
+    // Call it after a short delay to ensure DOM is ready
+    setTimeout(toggleExpiryDateField, 100);
 
     function processBarcodeInput() {
         const barcode = document.getElementById('barcode_input').value;
@@ -238,15 +242,6 @@
             collection_date: document.getElementById('collection_date').value,
             notes: document.getElementById('notes').value
         };
-
-        const formData = new FormData();
-        formData.append('barcode_number', barcode);
-        formData.append('trf_id', trfId);
-        formData.append('use_default_expiry', useDefaultExpiry);
-        if (!useDefaultExpiry) {
-            formData.append('expiry_date', expiryDate);
-        }
-        formData.append('tube_data', JSON.stringify(tubeData));
 
         fetch('{% url "process_scanned_barcode" %}', {
             method: 'POST',

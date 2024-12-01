@@ -186,21 +186,13 @@ def process_scanned_barcode(request):
     """API endpoint for processing scanned barcodes"""
     if request.method == 'POST':
         try:
-            # Parse request body as JSON if Content-Type is application/json
-            if request.content_type == 'application/json':
-                data = json.loads(request.body.decode('utf-8'))
-                barcode_number = data.get('barcode_number')
-                trf_id = data.get('trf_id')
-                use_default_expiry = data.get('use_default_expiry', True)
-                custom_expiry = data.get('expiry_date')
-                tube_data = data.get('tube_data', {})
-            else:
-                # Handle form data
-                barcode_number = request.POST.get('barcode_number')
-                trf_id = request.POST.get('trf_id')
-                use_default_expiry = request.POST.get('use_default_expiry') == 'true'
-                custom_expiry = request.POST.get('expiry_date')
-                tube_data = json.loads(request.POST.get('tube_data', '{}'))
+            # Parse request body as JSON
+            data = json.loads(request.body.decode('utf-8'))
+            barcode_number = data.get('barcode_number')
+            trf_id = data.get('trf_id')
+            use_default_expiry = data.get('use_default_expiry', True)
+            custom_expiry = data.get('expiry_date')
+            tube_data = data.get('tube_data', {})
 
             # Validate required fields
             if not barcode_number or not trf_id:
