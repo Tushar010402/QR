@@ -108,7 +108,7 @@ class Barcode(models.Model):
             self.barcode_image.save(f'barcode_{self.barcode_number}.png',
                                   File(buffer), save=False)
         
-        if not self.expiry_date:
+        if not self.expiry_date and self.trf:
             self.expiry_date = self.trf.expiry_date
             
         super().save(*args, **kwargs)
