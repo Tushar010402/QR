@@ -186,10 +186,9 @@ def process_scanned_barcode(request):
     """API endpoint for processing scanned barcodes"""
     if request.method == 'POST':
         try:
-            data = json.loads(request.body)
-            barcode_number = data.get('barcode_number')
-            trf_id = data.get('trf_id')
-            tube_data = data.get('tube_data', {})
+            barcode_number = request.POST.get('barcode_number')
+            trf_id = request.POST.get('trf_id')
+            expiry_date = request.POST.get('expiry_date')
 
             barcode = get_object_or_404(Barcode, barcode_number=barcode_number)
             trf = get_object_or_404(TRF, id=trf_id)
