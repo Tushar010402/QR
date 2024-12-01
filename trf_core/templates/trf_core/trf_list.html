@@ -3,146 +3,73 @@
 {% block title %}TRF List{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col">
-        <h2>Test Request Forms</h2>
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Test Request Forms</h2>
+        </div>
+        {% if user.is_authenticated %}
+        <div class="col text-end">
+            <a href="{% url 'trf_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create TRF
+            </a>
+        </div>
+        {% endif %}
     </div>
-    {% if user.is_authenticated %}
-    <div class="col text-end">
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createTRFModal">
-            <i class="fas fa-plus"></i> Create TRF
-        </button>
-    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if trfs %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>TRF Number</th>
+                        <th>Created By</th>
+                        <th>Created At</th>
+                        <th>Expiry Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trf in trfs %}
+                        <tr>
+                            <td>{{ trf.trf_number }}</td>
+                            <td>{{ trf.created_by.username }}</td>
+                            <td>{{ trf.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>{{ trf.expiry_date }}</td>
+                            <td>
+                                <span class="badge {% if trf.is_expired %}bg-danger{% else %}bg-success{% endif %}">
+                                    {% if trf.is_expired %}Expired{% else %}Valid{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'trf_detail' pk=trf.id %}" class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if user.is_authenticated %}
+                                    <a href="{% url 'barcode_create' trf_id=trf.id %}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-barcode"></i>
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            No TRFs found. {% if user.is_authenticated %}Create your first TRF!{% endif %}
+        </div>
     {% endif %}
 </div>
-
-<div class="table-responsive">
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>TRF Number</th>
-                <th>Created By</th>
-                <th>Created At</th>
-                <th>Expiry Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody id="trfTableBody">
-            <!-- Data will be loaded dynamically -->
-        </tbody>
-    </table>
-</div>
-
-<!-- Create TRF Modal -->
-<div class="modal fade" id="createTRFModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Create New TRF</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="createTRFForm">
-                    <div class="mb-3">
-                        <label for="trf_number" class="form-label">TRF Number</label>
-                        <input type="text" class="form-control" id="trf_number" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="expiry_date" class="form-label">Expiry Date</label>
-                        <input type="date" class="form-control" id="expiry_date" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="notes" class="form-label">Notes</label>
-                        <textarea class="form-control" id="notes" rows="3"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="saveTRFBtn">Save TRF</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    function loadTRFs() {
-        fetch('/api/trfs/')
-            .then(response => response.json())
-            .then(data => {
-                const tableBody = document.getElementById('trfTableBody');
-                tableBody.innerHTML = '';
-                
-                data.forEach(trf => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${trf.trf_number}</td>
-                        <td>${trf.created_by ? trf.created_by.username : 'N/A'}</td>
-                        <td>${new Date(trf.created_at).toLocaleDateString()}</td>
-                        <td>${new Date(trf.expiry_date).toLocaleDateString()}</td>
-                        <td>
-                            <span class="badge bg-${trf.is_expired ? 'danger' : 'success'}">
-                                ${trf.is_expired ? 'Expired' : 'Valid'}
-                            </span>
-                        </td>
-                        <td>
-                            <a href="/trf/${trf.id}/" class="btn btn-sm btn-info">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            ${user.is_authenticated ? `
-                                <button class="btn btn-sm btn-primary" onclick="addBarcode(${trf.id})">
-                                    <i class="fas fa-barcode"></i>
-                                </button>
-                            ` : ''}
-                        </td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-            });
-    }
-
-    document.getElementById('saveTRFBtn').addEventListener('click', function() {
-        const formData = {
-            trf_number: document.getElementById('trf_number').value,
-            expiry_date: document.getElementById('expiry_date').value,
-            notes: document.getElementById('notes').value
-        };
-
-        fetch('/api/trfs/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify(formData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            $('#createTRFModal').modal('hide');
-            loadTRFs();
-        });
-    });
-
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-
-    // Load TRFs when the page loads
-    document.addEventListener('DOMContentLoaded', loadTRFs);
-</script>
 {% endblock %}

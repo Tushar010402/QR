@@ -1,0 +1,125 @@
+{% extends 'trf_core/base.html' %}
+
+{% block title %}TRF Details{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">TRF Details</h4>
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'barcode_create' trf_id=trf.id %}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Barcode
+                        </a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <table class="table">
+                                <tr>
+                                    <th>TRF Number:</th>
+                                    <td>{{ trf.trf_number }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Created By:</th>
+                                    <td>{{ trf.created_by.username }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Created At:</th>
+                                    <td>{{ trf.created_at }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Expiry Date:</th>
+                                    <td>
+                                        {{ trf.expiry_date }}
+                                        <span class="badge {% if trf.is_expired %}bg-danger{% else %}bg-success{% endif %}">
+                                            {% if trf.is_expired %}Expired{% else %}Valid{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Notes:</th>
+                                    <td>{{ trf.notes|default:"No notes" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <img src="{{ trf.qr_code.url }}" alt="QR Code" class="img-fluid">
+                            <p class="mt-2">QR Code</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Associated Barcodes</h5>
+                </div>
+                <div class="card-body">
+                    {% if trf.barcodes.all %}
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Barcode</th>
+                                        <th>Number</th>
+                                        <th>Expiry Date</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for barcode in trf.barcodes.all %}
+                                        <tr>
+                                            <td>
+                                                <img src="{{ barcode.barcode_image.url }}" alt="Barcode" style="height: 30px;">
+                                            </td>
+                                            <td>{{ barcode.barcode_number }}</td>
+                                            <td>{{ barcode.expiry_date }}</td>
+                                            <td>
+                                                <span class="badge {% if barcode.is_expired %}bg-danger{% else %}bg-success{% endif %}">
+                                                    {% if barcode.is_expired %}Expired{% else %}Valid{% endif %}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'barcode_detail' pk=barcode.id %}" class="btn btn-sm btn-info">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-center">No barcodes associated with this TRF yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'trf_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Back to TRF List
+                        </a>
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'barcode_create' trf_id=trf.id %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add New Barcode
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

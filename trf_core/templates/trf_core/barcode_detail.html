@@ -1,0 +1,76 @@
+{% extends 'trf_core/base.html' %}
+
+{% block title %}Barcode Details{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Barcode Details</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <table class="table">
+                                <tr>
+                                    <th>Barcode Number:</th>
+                                    <td>{{ barcode.barcode_number }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Associated TRF:</th>
+                                    <td>
+                                        <a href="{% url 'trf_detail' pk=barcode.trf.id %}">
+                                            {{ barcode.trf.trf_number }}
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Created At:</th>
+                                    <td>{{ barcode.created_at }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Expiry Date:</th>
+                                    <td>
+                                        {{ barcode.expiry_date }}
+                                        <span class="badge {% if barcode.is_expired %}bg-danger{% else %}bg-success{% endif %}">
+                                            {% if barcode.is_expired %}Expired{% else %}Valid{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Notes:</th>
+                                    <td>{{ barcode.notes|default:"No notes" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <img src="{{ barcode.barcode_image.url }}" alt="Barcode" class="img-fluid">
+                            <p class="mt-2">Barcode</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'barcode_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Back to Barcode List
+                        </a>
+                        <a href="{% url 'trf_detail' pk=barcode.trf.id %}" class="btn btn-info">
+                            <i class="fas fa-file"></i> View Associated TRF
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
