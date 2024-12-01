@@ -186,13 +186,35 @@ def process_scanned_barcode(request):
     """API endpoint for processing scanned barcodes"""
     if request.method == 'POST':
         try:
+            # Get form data
             barcode_number = request.POST.get('barcode_number')
             trf_id = request.POST.get('trf_id')
-            expiry_date = request.POST.get('expiry_date')
+            use_default_expiry = request.POST.get('use_default_expiry') == 'on'
+            custom_expiry = request.POST.get('expiry_date')
 
-            barcode = get_object_or_404(Barcode, barcode_number=barcode_number)
-            trf = get_object_or_404(TRF, id=trf_id)
+            # Validate required fields
+            if not barcode_number or not trf_id:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Barcode number and TRF ID are required'
+                })
 
+            # Get barcode and TRF
+            try:
+                barcode = Barcode.objects.get(barcode_number=barcode_number)
+                trf = TRF.objects.get(id=trf_id)
+            except Barcode.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Barcode {barcode_number} not found'
+                })
+            except TRF.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'TRF with ID {trf_id} not found'
+                })
+
+            # Check if barcode is available
             if not barcode.is_available:
                 return JsonResponse({
                     'success': False,
@@ -206,18 +228,23 @@ def process_scanned_barcode(request):
             barcode.assigned_by = request.user
             
             # Handle expiry date
-            expiry_date = data.get('expiry_date')
-            if expiry_date:
+            if use_default_expiry:
+                barcode.expiry_date = trf.expiry_date
+            else:
                 try:
-                    barcode.expiry_date = datetime.strptime(expiry_date, '%Y-%m-%d').date()
+                    if not custom_expiry:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'Custom expiry date is required when not using default expiry'
+                        })
+                    barcode.expiry_date = datetime.strptime(custom_expiry, '%Y-%m-%d').date()
                 except ValueError:
                     return JsonResponse({
                         'success': False,
-                        'message': 'Invalid expiry date format'
+                        'message': 'Invalid expiry date format. Use YYYY-MM-DD'
                     })
-            else:
-                barcode.expiry_date = trf.expiry_date
             
+            # Save the barcode
             barcode.save()
 
             return JsonResponse({
