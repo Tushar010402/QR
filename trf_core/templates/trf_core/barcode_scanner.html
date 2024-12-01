@@ -278,8 +278,8 @@
             showMessage(data.message, !data.success);
             addToRecentScans(barcode, data.success);
             if (data.success) {
-                // Show success message with barcode details
-                showMessage(`Barcode ${data.barcode.barcode_number} successfully assigned to TRF ${data.barcode.trf_number}`, false);
+                // Show success message with barcode details and expiry date
+                showMessage(`Barcode ${data.barcode.barcode_number} successfully assigned to TRF ${data.barcode.trf_number}. Expiry date: ${data.barcode.expiry_date}`, false);
                 
                 // Clear form fields
                 document.getElementById('barcode_input').value = '';
