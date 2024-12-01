@@ -178,7 +178,8 @@ def barcode_inventory_create(request):
 @login_required
 def barcode_scanner(request):
     """View for scanning barcodes and assigning them to TRFs"""
-    return render(request, 'trf_core/barcode_scanner.html')
+    trfs = TRF.objects.filter(created_by=request.user).order_by('-created_at')
+    return render(request, 'trf_core/barcode_scanner.html', {'trfs': trfs})
 
 @csrf_exempt
 @login_required
@@ -246,7 +247,8 @@ def process_scanned_barcode(request):
                         'message': 'Invalid expiry date format. Use YYYY-MM-DD'
                     })
             
-            # Save the barcode
+            # Save tube data
+            barcode.tube_data = tube_data
             barcode.save()
 
             # Return success response with barcode details

@@ -236,11 +236,33 @@
             return;
         }
 
+        // Validate collection date
+        const collectionDate = document.getElementById('collection_date').value;
+        if (!collectionDate) {
+            showMessage('Please enter a collection date', true);
+            return;
+        }
+
+        // Validate volume
+        const volume = document.getElementById('volume').value;
+        if (!volume) {
+            showMessage('Please enter a volume', true);
+            return;
+        }
+
         const tubeData = {
             sample_type: document.getElementById('sample_type').value,
-            volume: document.getElementById('volume').value,
-            collection_date: document.getElementById('collection_date').value,
-            notes: document.getElementById('notes').value
+            volume: parseFloat(volume),
+            collection_date: collectionDate,
+            notes: document.getElementById('notes').value || ''
+        };
+
+        const requestData = {
+            barcode_number: barcode,
+            trf_id: trfId,
+            use_default_expiry: useDefaultExpiry,
+            expiry_date: !useDefaultExpiry ? expiryDate : null,
+            tube_data: tubeData
         };
 
         fetch('{% url "process_scanned_barcode" %}', {
@@ -249,19 +271,16 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({
-                barcode_number: barcode,
-                trf_id: trfId,
-                use_default_expiry: useDefaultExpiry,
-                expiry_date: !useDefaultExpiry ? expiryDate : null,
-                tube_data: tubeData
-            })
+            body: JSON.stringify(requestData)
         })
         .then(response => response.json())
         .then(data => {
             showMessage(data.message, !data.success);
             addToRecentScans(barcode, data.success);
             if (data.success) {
+                // Show success message with barcode details
+                showMessage(`Barcode ${data.barcode.barcode_number} successfully assigned to TRF ${data.barcode.trf_number}`, false);
+                
                 // Clear form fields
                 document.getElementById('barcode_input').value = '';
                 document.getElementById('volume').value = '';
@@ -271,11 +290,10 @@
                 document.getElementById('expiry_date').value = '';
                 document.getElementById('custom_expiry_container').style.display = 'none';
                 
-                // Close modal if it exists
-                const modal = bootstrap.Modal.getInstance(document.querySelector('.modal'));
-                if (modal) {
-                    modal.hide();
-                }
+                // Redirect to TRF detail page after a short delay
+                setTimeout(() => {
+                    window.location.href = `/trf/${trfId}/`;
+                }, 1500);
             }
         })
         .catch(error => {
