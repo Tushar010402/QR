@@ -205,7 +205,20 @@ def process_scanned_barcode(request):
             barcode.is_available = False
             barcode.assigned_at = timezone.now()
             barcode.assigned_by = request.user
-            barcode.tube_data = tube_data
+            
+            # Handle expiry date
+            expiry_date = data.get('expiry_date')
+            if expiry_date:
+                try:
+                    barcode.expiry_date = datetime.strptime(expiry_date, '%Y-%m-%d').date()
+                except ValueError:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Invalid expiry date format'
+                    })
+            else:
+                barcode.expiry_date = trf.expiry_date
+            
             barcode.save()
 
             return JsonResponse({
