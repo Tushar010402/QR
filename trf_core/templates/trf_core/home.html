@@ -1,0 +1,58 @@
+{% extends 'trf_core/base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="jumbotron text-center bg-light p-5 rounded">
+        <h1 class="display-4">Welcome to TRF Manager</h1>
+        <p class="lead">Manage Test Request Forms and Barcodes efficiently</p>
+        <hr class="my-4">
+        <p>Generate QR codes for TRFs and barcodes for sample tubes with ease.</p>
+        <div class="mt-4">
+            {% if user.is_authenticated %}
+                <a href="{% url 'trf_create' %}" class="btn btn-primary btn-lg me-3">
+                    <i class="fas fa-plus"></i> Create New TRF
+                </a>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-sign-in-alt"></i> Login to Create TRF
+                </a>
+            {% endif %}
+            <a href="{% url 'trf_list' %}" class="btn btn-outline-primary btn-lg">
+                <i class="fas fa-list"></i> View TRFs
+            </a>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-qrcode fa-3x mb-3 text-primary"></i>
+                    <h5 class="card-title">QR Code Generation</h5>
+                    <p class="card-text">Automatically generate QR codes for each TRF with unique identifiers.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-barcode fa-3x mb-3 text-primary"></i>
+                    <h5 class="card-title">Barcode Management</h5>
+                    <p class="card-text">Create and manage barcodes for sample tubes linked to TRFs.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-3x mb-3 text-primary"></i>
+                    <h5 class="card-title">Expiry Tracking</h5>
+                    <p class="card-text">Track expiry dates for both TRFs and individual barcodes.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

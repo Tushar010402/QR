@@ -1,13 +1,17 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.generic import ListView
+from django.contrib import messages
+from django.http import JsonResponse
+from django.urls import reverse
 from .models import TRF, Barcode
 from .serializers import TRFSerializer, BarcodeSerializer
 from django.utils import timezone
+from datetime import datetime
 
 class IsAuthenticatedOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -64,7 +68,69 @@ class TRFListView(ListView):
     template_name = 'trf_core/trf_list.html'
     context_object_name = 'trfs'
 
-class BarcodeListView(ListView):
-    model = Barcode
-    template_name = 'trf_core/barcode_list.html'
-    context_object_name = 'barcodes'
+def home(request):
+    return render(request, 'trf_core/home.html')
+
+def trf_list(request):
+    trfs = TRF.objects.all().order_by('-created_at')
+    return render(request, 'trf_core/trf_list.html', {'trfs': trfs})
+
+def barcode_list(request):
+    barcodes = Barcode.objects.all().order_by('-created_at')
+    return render(request, 'trf_core/barcode_list.html', {'barcodes': barcodes})
+
+@login_required
+def trf_create(request):
+    if request.method == 'POST':
+        trf_number = request.POST.get('trf_number')
+        expiry_date = request.POST.get('expiry_date')
+        notes = request.POST.get('notes')
+
+        try:
+            expiry_date = datetime.strptime(expiry_date, '%Y-%m-%d').date()
+            trf = TRF.objects.create(
+                trf_number=trf_number,
+                expiry_date=expiry_date,
+                notes=notes,
+                created_by=request.user
+            )
+            messages.success(request, 'TRF created successfully.')
+            return redirect('trf_detail', pk=trf.pk)
+        except Exception as e:
+            messages.error(request, f'Error creating TRF: {str(e)}')
+            return redirect('trf_list')
+
+    return render(request, 'trf_core/trf_form.html')
+
+@login_required
+def barcode_create(request, trf_id):
+    trf = get_object_or_404(TRF, id=trf_id)
+    
+    if request.method == 'POST':
+        barcode_number = request.POST.get('barcode_number')
+        expiry_date = request.POST.get('expiry_date')
+        notes = request.POST.get('notes')
+
+        try:
+            expiry_date = datetime.strptime(expiry_date, '%Y-%m-%d').date() if expiry_date else trf.expiry_date
+            barcode = Barcode.objects.create(
+                trf=trf,
+                barcode_number=barcode_number,
+                expiry_date=expiry_date,
+                notes=notes
+            )
+            messages.success(request, 'Barcode created successfully.')
+            return redirect('barcode_detail', pk=barcode.pk)
+        except Exception as e:
+            messages.error(request, f'Error creating barcode: {str(e)}')
+            return redirect('trf_detail', pk=trf_id)
+
+    return render(request, 'trf_core/barcode_form.html', {'trf': trf})
+
+def trf_detail(request, pk):
+    trf = get_object_or_404(TRF, pk=pk)
+    return render(request, 'trf_core/trf_detail.html', {'trf': trf})
+
+def barcode_detail(request, pk):
+    barcode = get_object_or_404(Barcode, pk=pk)
+    return render(request, 'trf_core/barcode_detail.html', {'barcode': barcode})
