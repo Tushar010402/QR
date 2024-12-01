@@ -50,10 +50,12 @@
                             <td>{{ inventory.created_by.username }}</td>
                             <td>{{ inventory.created_at|date:"Y-m-d H:i" }}</td>
                             <td>
-                                {% with total_count=inventory.end_number|add:-inventory.start_number|add:1 %}
+                                {% with difference=inventory.end_number|add:"-inventory.start_number" %}
+                                    {% with total_count=difference|add:"1" %}
                                     <span class="badge bg-{% if inventory.available_count > 0 %}success{% else %}danger{% endif %}">
                                         {{ inventory.available_count }} / {{ total_count }}
                                     </span>
+                                {% endwith %}
                                 {% endwith %}
                             </td>
                             <td>
