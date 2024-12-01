@@ -2,6 +2,88 @@
 
 {% block title %}TRF Details{% endblock %}
 
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('addBarcodeForm');
+    const barcodeInput = document.getElementById('barcodeInput');
+    const modal = document.getElementById('addBarcodeModal');
+    const bsModal = new bootstrap.Modal(modal);
+
+    // Focus barcode input when modal is shown
+    modal.addEventListener('shown.bs.modal', function () {
+        barcodeInput.focus();
+    });
+
+    // Handle form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(form);
+        const data = {
+            barcode_number: formData.get('barcode_number'),
+            trf_id: formData.get('trf_id'),
+            tube_data: {
+                sample_type: formData.get('sample_type'),
+                volume: formData.get('volume'),
+                collection_date: formData.get('collection_date'),
+                notes: formData.get('notes')
+            }
+        };
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Show success message and reload page
+                alert('Barcode successfully added to TRF');
+                location.reload();
+            } else {
+                // Show error message
+                alert('Error: ' + result.message);
+            }
+        } catch (error) {
+            alert('Error adding barcode: ' + error.message);
+        }
+    });
+
+    // Handle barcode scanner input
+    let lastScan = '';
+    let scanTimer = null;
+
+    barcodeInput.addEventListener('keypress', function(e) {
+        // If Enter is pressed and there's a value, submit the form
+        if (e.key === 'Enter' && this.value) {
+            e.preventDefault();
+            form.dispatchEvent(new Event('submit'));
+        }
+    });
+
+    barcodeInput.addEventListener('input', function(e) {
+        clearTimeout(scanTimer);
+        lastScan = this.value;
+        
+        // Set a timer to detect end of barcode scanner input
+        scanTimer = setTimeout(() => {
+            if (lastScan === this.value && this.value) {
+                // Auto-submit if the value hasn't changed for 100ms
+                form.dispatchEvent(new Event('submit'));
+            }
+        }, 100);
+    });
+});
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <div class="row">
@@ -112,10 +194,53 @@
                             <i class="fas fa-arrow-left"></i> Back to TRF List
                         </a>
                         {% if user.is_authenticated %}
-                            <a href="{% url 'barcode_create' trf_id=trf.id %}" class="btn btn-primary">
-                                <i class="fas fa-plus"></i> Add New Barcode
-                            </a>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBarcodeModal">
+                                <i class="fas fa-barcode"></i> Scan/Add Barcode
+                            </button>
                         {% endif %}
+                    </div>
+
+                    <!-- Add Barcode Modal -->
+                    <div class="modal fade" id="addBarcodeModal" tabindex="-1" aria-labelledby="addBarcodeModalLabel" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="addBarcodeModalLabel">Add Barcode to TRF</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <form id="addBarcodeForm" method="POST" action="{% url 'process_scanned_barcode' %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="trf_id" value="{{ trf.id }}">
+                                        <div class="mb-3">
+                                            <label for="barcodeInput" class="form-label">Scan or Enter Barcode</label>
+                                            <input type="text" class="form-control" id="barcodeInput" name="barcode_number" 
+                                                   placeholder="Scan barcode or enter number" autofocus>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="sampleType" class="form-label">Sample Type</label>
+                                            <input type="text" class="form-control" id="sampleType" name="sample_type">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="volume" class="form-label">Volume</label>
+                                            <input type="text" class="form-control" id="volume" name="volume">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="collectionDate" class="form-label">Collection Date</label>
+                                            <input type="date" class="form-control" id="collectionDate" name="collection_date">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="notes" class="form-label">Notes</label>
+                                            <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    <button type="submit" form="addBarcodeForm" class="btn btn-primary">Add Barcode</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

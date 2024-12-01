@@ -65,8 +65,14 @@ class BarcodeInventory(models.Model):
         self.create_barcodes()
     
     def create_barcodes(self):
+        """Create barcodes from start_number to end_number (inclusive)"""
         from .models import Barcode  # Import here to avoid circular import
-        for number in range(self.start_number, self.end_number + 1):
+        # Calculate total barcodes to create
+        total_barcodes = self.end_number - self.start_number + 1
+        
+        # Create barcodes in the specified range
+        for i in range(total_barcodes):
+            number = self.start_number + i
             barcode_number = f"{self.prefix}{number:08d}"
             Barcode.objects.get_or_create(
                 barcode_number=barcode_number,
