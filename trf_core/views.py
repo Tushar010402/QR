@@ -6,8 +6,11 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.generic import ListView
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.urls import reverse
+from django.contrib.auth import login, logout
+from django.contrib.auth.forms import AuthenticationForm
+from django.views.decorators.csrf import csrf_protect
 from .models import TRF, Barcode, BarcodeInventory
 from .serializers import TRFSerializer, BarcodeSerializer
 from django.utils import timezone
@@ -71,8 +74,42 @@ class TRFListView(ListView):
     template_name = 'trf_core/trf_list.html'
     context_object_name = 'trfs'
 
+@csrf_protect
+def login_view(request):
+    if request.method == 'POST':
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            next_url = request.GET.get('next', reverse('home'))
+            return redirect(next_url)
+    else:
+        form = AuthenticationForm()
+    
+    return render(request, 'trf_core/login.html', {'form': form})
+
+def logout_view(request):
+    logout(request)
+    return redirect('login')
+
+@login_required
 def home(request):
     return render(request, 'trf_core/home.html')
+
+def public_barcode_view(request, barcode_number):
+    """Public view for barcode information - no login required"""
+    try:
+        barcode = Barcode.objects.get(barcode_number=barcode_number)
+        data = {
+            'barcode_number': barcode.barcode_number,
+            'expiry_date': barcode.expiry_date,
+            'is_expired': barcode.is_expired,
+            'trf_number': barcode.trf.trf_number if barcode.trf else None,
+            'tube_data': barcode.tube_data or {},
+        }
+        return JsonResponse(data)
+    except Barcode.DoesNotExist:
+        return JsonResponse({'error': 'Barcode not found'}, status=404)
 
 def trf_list(request):
     trfs = TRF.objects.all().order_by('-created_at')

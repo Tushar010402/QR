@@ -8,7 +8,10 @@ router.register(r'barcodes', views.BarcodeViewSet)
 
 urlpatterns = [
     path('api/', include(router.urls)),
+    path('login/', views.login_view, name='login'),
+    path('logout/', views.logout_view, name='logout'),
     path('', views.home, name='home'),
+    path('barcode/<str:barcode_number>/', views.public_barcode_view, name='public_barcode'),
     
     # TRF URLs
     path('trfs/', views.trf_list, name='trf_list'),

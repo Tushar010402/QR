@@ -96,6 +96,7 @@ class Barcode(models.Model):
     trf = models.ForeignKey(TRF, related_name='barcodes', on_delete=models.CASCADE, null=True, blank=True)
     barcode_number = models.CharField(max_length=50, unique=True)
     barcode_image = models.ImageField(upload_to='barcodes/', blank=True)
+    qr_code = models.ImageField(upload_to='qr_codes/', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expiry_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
@@ -108,11 +109,30 @@ class Barcode(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.barcode_image:
+            # Generate Code128 barcode
             code128 = Code128(self.barcode_number, writer=ImageWriter())
             buffer = BytesIO()
             code128.write(buffer)
             self.barcode_image.save(f'barcode_{self.barcode_number}.png',
                                   File(buffer), save=False)
+            
+            # Generate QR code with public URL
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            public_url = f'http://127.0.0.1:8000/barcode/{self.barcode_number}/'
+            qr.add_data(public_url)
+            qr.make(fit=True)
+            qr_image = qr.make_image(fill_color="black", back_color="white")
+            
+            # Save QR code
+            qr_buffer = BytesIO()
+            qr_image.save(qr_buffer, format='PNG')
+            self.qr_code.save(f'qr_{self.barcode_number}.png',
+                            File(qr_buffer), save=False)
         
         if not self.expiry_date and self.trf:
             self.expiry_date = self.trf.expiry_date
