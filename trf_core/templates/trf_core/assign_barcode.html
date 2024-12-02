@@ -34,7 +34,7 @@
                         </div>
                     </div>
 
-                    <form method="post">
+                    <form id="assignForm">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label for="trf_id" class="form-label">Select TRF</label>
@@ -78,9 +78,15 @@
 
                         <div class="text-end">
                             <a href="{% url 'available_barcodes' %}" class="btn btn-secondary">Cancel</a>
-                            <button type="submit" class="btn btn-primary">Assign Barcode</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-link"></i> Assign Barcode
+                            </button>
                         </div>
                     </form>
+
+                    <div id="errorAlert" class="alert alert-danger mt-3" style="display: none;">
+                        <!-- Error messages will be displayed here -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -92,5 +98,47 @@
 <script>
     // Set default collection date to now
     document.getElementById('collection_date').value = new Date().toISOString().slice(0, 16);
+
+    // Handle form submission
+    document.getElementById('assignForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Get form data
+        const formData = {
+            trf_id: document.getElementById('trf_id').value,
+            sample_type: document.getElementById('sample_type').value,
+            volume: document.getElementById('volume').value,
+            collection_date: document.getElementById('collection_date').value,
+            notes: document.getElementById('notes').value
+        };
+        
+        // Send AJAX request
+        fetch('{% url "assign_barcode_to_trf" barcode_id=barcode.id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message and redirect
+                window.location.href = data.redirect_url;
+            } else {
+                // Show error message
+                const errorAlert = document.getElementById('errorAlert');
+                errorAlert.textContent = data.message;
+                errorAlert.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            // Show error message
+            const errorAlert = document.getElementById('errorAlert');
+            errorAlert.textContent = 'An error occurred. Please try again.';
+            errorAlert.style.display = 'block';
+        });
+    });
 </script>
 {% endblock %}

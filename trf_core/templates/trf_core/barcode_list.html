@@ -41,9 +41,13 @@
                             </td>
                             <td>{{ barcode.barcode_number }}</td>
                             <td>
-                                <a href="{% url 'trf_detail' pk=barcode.trf.id %}">
-                                    {{ barcode.trf.trf_number }}
-                                </a>
+                                {% if barcode.trf %}
+                                    <a href="{% url 'trf_detail' pk=barcode.trf.id %}">
+                                        {{ barcode.trf.trf_number }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">Not assigned</span>
+                                {% endif %}
                             </td>
                             <td>{{ barcode.created_at|date:"Y-m-d H:i" }}</td>
                             <td>{{ barcode.expiry_date }}</td>
