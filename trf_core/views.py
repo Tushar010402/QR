@@ -22,6 +22,10 @@ from datetime import datetime
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
+from io import BytesIO
+from PIL import Image as PILImage
+import barcode
+from barcode.writer import ImageWriter
 
 class IsAuthenticatedOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -360,17 +364,20 @@ def print_barcode_batch(request, batch_id):
         data = []
         row = []
         
-        for idx, barcode in enumerate(batch_barcodes):
-            # Get the barcode image
+        for idx, barcode_obj in enumerate(batch_barcodes):
+            # Generate barcode image
+            code128 = barcode.get_barcode_class('code128')
+            barcode_instance = code128(barcode_obj.barcode_number, writer=ImageWriter())
+            
+            # Save barcode to BytesIO
             img_temp = BytesIO()
-            img = Image.open(barcode.barcode_image.path)
-            img.save(img_temp, format='PNG')
+            barcode_instance.write(img_temp)
             img_temp.seek(0)
             
             # Create a cell with barcode image and text
             cell_contents = [
                 Image(img_temp, width=45*mm, height=15*mm),
-                Paragraph(barcode.barcode_number, barcode_style)
+                Paragraph(barcode_obj.barcode_number, barcode_style)
             ]
             row.append(cell_contents)
             
@@ -400,19 +407,25 @@ def print_barcode_batch(request, batch_id):
         ]))
         
         elements.append(table)
-        elements.append(PageBreak())
+        if i + cols * rows < len(barcodes):  # Only add page break if not last page
+            elements.append(PageBreak())
     
-    doc.build(elements)
+    try:
+        doc.build(elements)
+    except Exception as e:
+        messages.error(request, f'Error generating PDF: {str(e)}')
+        return redirect('barcode_inventory_list')
+        
     return response
 
 @login_required
 def print_single_barcode(request, barcode_id):
     """View for printing a single barcode"""
-    barcode = get_object_or_404(Barcode, id=barcode_id)
+    barcode_obj = get_object_or_404(Barcode, id=barcode_id)
     
     # Create a response with appropriate headers for printing
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="barcode_{barcode.barcode_number}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="barcode_{barcode_obj.barcode_number}.pdf"'
     
     # Create PDF document optimized for label printing
     doc = SimpleDocTemplate(
@@ -427,6 +440,36 @@ def print_single_barcode(request, barcode_id):
     # Define styles
     styles = getSampleStyleSheet()
     barcode_style = ParagraphStyle(
+        'BarcodeStyle',
+        parent=styles['Normal'],
+        alignment=TA_CENTER,
+        fontSize=8,
+        leading=10
+    )
+    
+    # Generate barcode image
+    code128 = barcode.get_barcode_class('code128')
+    barcode_instance = code128(barcode_obj.barcode_number, writer=ImageWriter())
+    
+    # Save barcode to BytesIO
+    img_temp = BytesIO()
+    barcode_instance.write(img_temp)
+    img_temp.seek(0)
+    
+    # Create elements list
+    elements = []
+    
+    # Add barcode image and text
+    elements.append(Image(img_temp, width=60*mm, height=20*mm))
+    elements.append(Paragraph(barcode_obj.barcode_number, barcode_style))
+    
+    try:
+        doc.build(elements)
+    except Exception as e:
+        messages.error(request, f'Error generating PDF: {str(e)}')
+        return redirect('barcode_detail', pk=barcode_id)
+    
+    return responsestyle = ParagraphStyle(
         'BarcodeStyle',
         parent=styles['Normal'],
         alignment=TA_CENTER,

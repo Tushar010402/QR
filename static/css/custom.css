@@ -1,46 +1,161 @@
+/* General styles */
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Navigation */
 .navbar {
     margin-bottom: 2rem;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    padding: 1rem 0;
+    background: linear-gradient(45deg, #4e73df, #224abe);
 }
 
+.navbar-brand {
+    font-weight: 600;
+    font-size: 1.5rem;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Jumbotron */
 .jumbotron {
-    background-color: #f8f9fa;
-    padding: 2rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    padding: 3rem 2rem;
     margin-bottom: 2rem;
-    border-radius: 0.3rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
+/* Cards */
 .card {
     margin-bottom: 1.5rem;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: none;
+    border-radius: 1rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
 }
 
 .card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    background: linear-gradient(45deg, #f8f9fa, #ffffff);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 1rem 1rem 0 0 !important;
+    padding: 1.25rem;
+}
+
+/* Tables */
+.table {
+    background-color: white;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.table thead th {
+    background: linear-gradient(45deg, #f8f9fa, #ffffff);
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
 }
 
 .table img {
     max-height: 40px;
     width: auto;
+    border-radius: 4px;
 }
 
+/* Badges */
 .badge {
     font-size: 0.875rem;
-    padding: 0.35em 0.65em;
+    padding: 0.5em 1em;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 6px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .btn-sm {
     margin: 0 0.2rem;
+    padding: 0.4rem 0.8rem;
 }
 
+.btn-lg {
+    padding: 1rem 2rem;
+}
+
+/* Alerts */
 .alert {
+    margin-bottom: 1.5rem;
+    border-radius: 1rem;
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* Forms */
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.form-control {
+    border-radius: 6px;
+    border: 2px solid #ced4da;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.15);
+}
+
+/* Custom components */
+.barcode-container {
+    background: white;
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    text-align: center;
     margin-bottom: 1.5rem;
 }
 
-.form-label {
-    font-weight: 500;
+.barcode-image {
+    max-width: 100%;
+    height: auto;
+    margin-bottom: 1rem;
 }
 
+.barcode-number {
+    font-family: monospace;
+    font-size: 1.2rem;
+    color: #495057;
+    margin-top: 1rem;
+}
+
+/* Responsive design */
 @media (max-width: 768px) {
     .container {
         padding: 0 1rem;
@@ -48,6 +163,8 @@
 
     .table-responsive {
         font-size: 0.875rem;
+        border-radius: 1rem;
+        overflow: hidden;
     }
 
     .btn-sm {
@@ -57,5 +174,30 @@
 
     .card-body {
         padding: 1rem;
+    }
+
+    .jumbotron {
+        padding: 2rem 1rem;
+    }
+}
+
+/* Print styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    .print-only {
+        display: block !important;
+    }
+    
+    .table {
+        border: 1px solid #dee2e6;
+        box-shadow: none;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #dee2e6;
     }
 }
