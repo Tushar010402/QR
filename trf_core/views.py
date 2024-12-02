@@ -4,9 +4,11 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404, render, redirect
 from django.http import HttpResponse
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Image, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import letter, A4, landscape
+from reportlab.lib.units import mm, inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Image, Paragraph, Spacer, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.generic import ListView
@@ -321,32 +323,85 @@ def print_barcode_batch(request, batch_id):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="batch_{batch.batch_number}_barcodes.pdf"'
     
-    # Create PDF document
-    doc = SimpleDocTemplate(response, pagesize=letter)
+    # Create PDF document optimized for label printing
+    # Using A4 landscape for better label layout
+    doc = SimpleDocTemplate(
+        response,
+        pagesize=landscape(A4),
+        rightMargin=10*mm,
+        leftMargin=10*mm,
+        topMargin=10*mm,
+        bottomMargin=10*mm
+    )
+    
+    # Define styles
+    styles = getSampleStyleSheet()
+    barcode_style = ParagraphStyle(
+        'BarcodeStyle',
+        parent=styles['Normal'],
+        alignment=TA_CENTER,
+        fontSize=8,
+        leading=10
+    )
+    
     elements = []
     
-    # Create a table for the barcodes
-    data = []
-    for barcode in barcodes:
-        # Get the barcode image
-        img_temp = BytesIO()
-        img = Image.open(barcode.barcode_image.path)
-        img.save(img_temp, format='PNG')
-        img_temp.seek(0)
+    # Calculate optimal layout
+    page_width = landscape(A4)[0] - 20*mm
+    page_height = landscape(A4)[1] - 20*mm
+    label_width = 50*mm
+    label_height = 25*mm
+    cols = int(page_width // label_width)
+    rows = int(page_height // label_height)
+    
+    # Process barcodes in groups for table layout
+    for i in range(0, len(barcodes), cols * rows):
+        batch_barcodes = barcodes[i:i + cols * rows]
+        data = []
+        row = []
         
-        # Add barcode image and number to the table
-        data.append([Image(img_temp), barcode.barcode_number])
+        for idx, barcode in enumerate(batch_barcodes):
+            # Get the barcode image
+            img_temp = BytesIO()
+            img = Image.open(barcode.barcode_image.path)
+            img.save(img_temp, format='PNG')
+            img_temp.seek(0)
+            
+            # Create a cell with barcode image and text
+            cell_contents = [
+                Image(img_temp, width=45*mm, height=15*mm),
+                Paragraph(barcode.barcode_number, barcode_style)
+            ]
+            row.append(cell_contents)
+            
+            if len(row) == cols:
+                data.append(row)
+                row = []
+        
+        # Add any remaining items in the last row
+        if row:
+            while len(row) < cols:
+                row.append(['', ''])  # Empty cells for padding
+            data.append(row)
+        
+        # Create table for this group
+        col_widths = [label_width] * cols
+        table = Table(data, colWidths=col_widths, rowHeights=[label_height] * len(data))
+        
+        table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('LEFTPADDING', (0, 0), (-1, -1), 2*mm),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 2*mm),
+            ('TOPPADDING', (0, 0), (-1, -1), 1*mm),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1*mm),
+        ]))
+        
+        elements.append(table)
+        elements.append(PageBreak())
     
-    # Create the table with 2 columns
-    table = Table(data, colWidths=[200, 200])
-    table.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('PADDING', (0, 0), (-1, -1), 6),
-    ]))
-    
-    elements.append(table)
     doc.build(elements)
     return response
 
@@ -359,8 +414,26 @@ def print_single_barcode(request, barcode_id):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="barcode_{barcode.barcode_number}.pdf"'
     
-    # Create PDF document
-    doc = SimpleDocTemplate(response, pagesize=letter)
+    # Create PDF document optimized for label printing
+    doc = SimpleDocTemplate(
+        response,
+        pagesize=(62*mm, 29*mm),  # Standard label size
+        rightMargin=1*mm,
+        leftMargin=1*mm,
+        topMargin=1*mm,
+        bottomMargin=1*mm
+    )
+    
+    # Define styles
+    styles = getSampleStyleSheet()
+    barcode_style = ParagraphStyle(
+        'BarcodeStyle',
+        parent=styles['Normal'],
+        alignment=TA_CENTER,
+        fontSize=8,
+        leading=10
+    )
+    
     elements = []
     
     # Get the barcode image
@@ -369,15 +442,25 @@ def print_single_barcode(request, barcode_id):
     img.save(img_temp, format='PNG')
     img_temp.seek(0)
     
-    # Add barcode image and details to the PDF
-    elements.append(Image(img_temp))
-    elements.append(Spacer(1, 12))
-    elements.append(Paragraph(f"Barcode: {barcode.barcode_number}", getSampleStyleSheet()['Normal']))
+    # Add barcode image sized for label
+    elements.append(Image(img_temp, width=58*mm, height=20*mm))
+    elements.append(Spacer(1, 1*mm))
     
-    if barcode.batch_number:
-        elements.append(Paragraph(f"Batch: {barcode.batch_number}", getSampleStyleSheet()['Normal']))
+    # Add barcode number in small text
+    elements.append(Paragraph(barcode.barcode_number, barcode_style))
     
-    doc.build(elements)
+    # Build the PDF with a frame
+    def add_border(canvas, doc):
+        canvas.setStrokeColorRGB(0.8, 0.8, 0.8)  # Light grey
+        canvas.setLineWidth(0.5)
+        canvas.rect(
+            doc.leftMargin,
+            doc.bottomMargin,
+            doc.width,
+            doc.height
+        )
+    
+    doc.build(elements, onFirstPage=add_border, onLaterPages=add_border)
     return response
 
 def assign_barcode(request, barcode_id):
