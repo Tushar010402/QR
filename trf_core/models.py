@@ -90,7 +90,8 @@ class Barcode(models.Model):
     """Model for individual barcodes (both pre-printed and generated)"""
     BARCODE_TYPE_CHOICES = [
         ('generated', 'Generated'),
-        ('pre_printed', 'Pre-printed')
+        ('pre_printed', 'Pre-printed'),
+        ('external', 'External')
     ]
     
     trf = models.ForeignKey(TRF, related_name='barcodes', on_delete=models.CASCADE, null=True, blank=True)
@@ -106,7 +107,27 @@ class Barcode(models.Model):
     assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_barcodes')
     tube_data = models.JSONField(null=True, blank=True)  # For storing additional tube information
 
+    def clean(self):
+        # Validate barcode is not empty or just whitespace
+        if not self.barcode_number or not self.barcode_number.strip():
+            raise ValidationError('Barcode number cannot be empty')
+        
+        # Validate expiry date
+        if self.expiry_date and self.expiry_date < timezone.now().date():
+            raise ValidationError('Expiry date cannot be in the past')
+
+        # Validate uniqueness
+        if self.pk is None:  # Only for new barcodes
+            existing = Barcode.objects.filter(barcode_number=self.barcode_number).first()
+            if existing:
+                if existing.trf:
+                    raise ValidationError(f'This barcode is already assigned to TRF: {existing.trf.trf_number}')
+                if not existing.is_available:
+                    raise ValidationError('This barcode is already in use')
+
     def save(self, *args, **kwargs):
+        self.clean()
+        
         if not self.barcode_image:
             code128 = Code128(self.barcode_number, writer=ImageWriter())
             buffer = BytesIO()
