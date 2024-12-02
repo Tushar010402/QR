@@ -6,9 +6,12 @@ from django.http import HttpResponse
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4, landscape
 from reportlab.lib.units import mm, inch
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Image, Paragraph, Spacer, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
+from io import BytesIO
+from PIL import Image as PILImage
+from reportlab.platypus import Image as RLImage
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.generic import ListView
@@ -215,14 +218,41 @@ def process_scanned_barcode(request):
             trf_id = data.get('trf_id')
             tube_data = data.get('tube_data', {})
 
-            barcode = get_object_or_404(Barcode, barcode_number=barcode_number)
-            trf = get_object_or_404(TRF, id=trf_id)
+            # Check if barcode exists
+            try:
+                barcode = Barcode.objects.get(barcode_number=barcode_number)
+                if not barcode.is_available:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'This barcode is already in use'
+                    })
+            except Barcode.DoesNotExist:
+                # Create new external barcode
+                trf = get_object_or_404(TRF, id=trf_id)
+                custom_expiry = data.get('expiry_date')
+                
+                try:
+                    expiry_date = datetime.strptime(custom_expiry, '%Y-%m-%d').date() if custom_expiry else trf.expiry_date
+                except ValueError:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Invalid expiry date format. Use YYYY-MM-DD'
+                    })
+                
+                if expiry_date < timezone.now().date():
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Expiry date cannot be in the past'
+                    })
+                
+                barcode = Barcode.objects.create(
+                    barcode_number=barcode_number,
+                    barcode_type='external',
+                    is_available=True,
+                    expiry_date=expiry_date
+                )
 
-            if not barcode.is_available:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'This barcode is already in use'
-                })
+            trf = get_object_or_404(TRF, id=trf_id)
 
             # Assign barcode to TRF
             barcode.trf = trf
@@ -267,12 +297,16 @@ def available_barcodes(request):
     })
 
 @login_required
-@login_required
 def delete_barcode_batch(request, batch_id):
     """View for deleting a barcode batch and its associated barcodes"""
-    batch = get_object_or_404(BarcodeInventory, id=batch_id)
-    
     try:
+        batch = get_object_or_404(BarcodeInventory, id=batch_id)
+        barcodes = Barcode.objects.filter(batch_number=batch.batch_number)
+        
+        if not barcodes.exists():
+            messages.error(request, 'No barcodes found in this batch')
+            return redirect('barcode_inventory_list')
+        
         # Delete associated barcodes that are still available (not assigned to any TRF)
         Barcode.objects.filter(batch_number=batch.batch_number, is_available=True).delete()
         
@@ -292,152 +326,183 @@ def delete_barcode_batch(request, batch_id):
 @login_required
 def print_barcode_batch(request, batch_id):
     """View for printing all barcodes in a batch"""
-    batch = get_object_or_404(BarcodeInventory, id=batch_id)
-    barcodes = Barcode.objects.filter(batch_number=batch.batch_number)
-    
-    # Create a response with appropriate headers for printing
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="batch_{batch.batch_number}_barcodes.pdf"'
-    
-    # Create PDF document optimized for label printing
-    # Using A4 landscape for better label layout
-    doc = SimpleDocTemplate(
-        response,
-        pagesize=landscape(A4),
-        rightMargin=10*mm,
-        leftMargin=10*mm,
-        topMargin=10*mm,
-        bottomMargin=10*mm
-    )
-    
-    # Define styles
-    styles = getSampleStyleSheet()
-    barcode_style = ParagraphStyle(
-        'BarcodeStyle',
-        parent=styles['Normal'],
-        alignment=TA_CENTER,
-        fontSize=8,
-        leading=10
-    )
-    
-    elements = []
-    
-    # Calculate optimal layout
-    page_width = landscape(A4)[0] - 20*mm
-    page_height = landscape(A4)[1] - 20*mm
-    label_width = 50*mm
-    label_height = 25*mm
-    cols = int(page_width // label_width)
-    rows = int(page_height // label_height)
-    
-    # Process barcodes in groups for table layout
-    for i in range(0, len(barcodes), cols * rows):
-        batch_barcodes = barcodes[i:i + cols * rows]
-        data = []
-        row = []
+    try:
+        batch = get_object_or_404(BarcodeInventory, id=batch_id)
+        barcodes = Barcode.objects.filter(batch_number=batch.batch_number)
         
-        for idx, barcode in enumerate(batch_barcodes):
-            # Get the barcode image
-            img_temp = BytesIO()
-            img = Image.open(barcode.barcode_image.path)
-            img.save(img_temp, format='PNG')
-            img_temp.seek(0)
+        if not barcodes.exists():
+            messages.error(request, 'No barcodes found in this batch')
+            return redirect('barcode_inventory_list')
+        
+        # Create a response with appropriate headers for printing
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="batch_{batch.batch_number}_barcodes.pdf"'
+        
+        # Create PDF document optimized for label printing
+        doc = SimpleDocTemplate(
+            response,
+            pagesize=landscape(A4),
+            rightMargin=10*mm,
+            leftMargin=10*mm,
+            topMargin=10*mm,
+            bottomMargin=10*mm
+        )
+        
+        # Define styles
+        styles = getSampleStyleSheet()
+        barcode_style = ParagraphStyle(
+            'BarcodeStyle',
+            parent=styles['Normal'],
+            alignment=TA_CENTER,
+            fontSize=8,
+            leading=10
+        )
+        
+        elements = []
+        
+        # Calculate optimal layout
+        page_width = landscape(A4)[0] - 20*mm
+        page_height = landscape(A4)[1] - 20*mm
+        label_width = 50*mm
+        label_height = 25*mm
+        cols = int(page_width // label_width)
+        rows = int(page_height // label_height)
+        
+        # Process barcodes in groups for table layout
+        for i in range(0, len(barcodes), cols * rows):
+            batch_barcodes = barcodes[i:i + cols * rows]
+            data = []
+            row = []
             
-            # Create a cell with barcode image and text
-            cell_contents = [
-                Image(img_temp, width=45*mm, height=15*mm),
-                Paragraph(barcode.barcode_number, barcode_style)
-            ]
-            row.append(cell_contents)
+            for barcode in batch_barcodes:
+                try:
+                    # Get the barcode image
+                    img_temp = BytesIO()
+                    img = PILImage.open(barcode.barcode_image.path)
+                    img.save(img_temp, format='PNG')
+                    img_temp.seek(0)
+                    
+                    # Create a cell with barcode image and text
+                    barcode_image = RLImage(img_temp, width=45*mm, height=15*mm)
+                    barcode_text = Paragraph(barcode.barcode_number, barcode_style)
+                    
+                    cell_contents = [
+                        barcode_image,
+                        barcode_text
+                    ]
+                    row.append(cell_contents)
+                    
+                    if len(row) == cols:
+                        data.append(row)
+                        row = []
+                except Exception as e:
+                    messages.error(request, f'Error processing barcode {barcode.barcode_number}: {str(e)}')
+                    continue
             
-            if len(row) == cols:
+            # Add any remaining items in the last row
+            if row:
+                while len(row) < cols:
+                    row.append(['', ''])  # Empty cells for padding
                 data.append(row)
-                row = []
+            
+            if data:  # Only create table if we have data
+                # Create table for this group
+                col_widths = [label_width] * cols
+                table = Table(data, colWidths=col_widths, rowHeights=[label_height] * len(data))
+                
+                table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 2*mm),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 2*mm),
+                    ('TOPPADDING', (0, 0), (-1, -1), 1*mm),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 1*mm),
+                ]))
+                
+                elements.append(table)
+                elements.append(PageBreak())
         
-        # Add any remaining items in the last row
-        if row:
-            while len(row) < cols:
-                row.append(['', ''])  # Empty cells for padding
-            data.append(row)
+        if not elements:
+            messages.error(request, 'No valid barcodes to print')
+            return redirect('barcode_inventory_list')
         
-        # Create table for this group
-        col_widths = [label_width] * cols
-        table = Table(data, colWidths=col_widths, rowHeights=[label_height] * len(data))
+        doc.build(elements)
+        return response
         
-        table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('BOX', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('LEFTPADDING', (0, 0), (-1, -1), 2*mm),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 2*mm),
-            ('TOPPADDING', (0, 0), (-1, -1), 1*mm),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 1*mm),
-        ]))
-        
-        elements.append(table)
-        elements.append(PageBreak())
-    
-    doc.build(elements)
-    return response
+    except Exception as e:
+        messages.error(request, f'Error generating PDF: {str(e)}')
+        return redirect('barcode_inventory_list')
 
 @login_required
 def print_single_barcode(request, barcode_id):
     """View for printing a single barcode"""
-    barcode = get_object_or_404(Barcode, id=barcode_id)
-    
-    # Create a response with appropriate headers for printing
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="barcode_{barcode.barcode_number}.pdf"'
-    
-    # Create PDF document optimized for label printing
-    doc = SimpleDocTemplate(
-        response,
-        pagesize=(62*mm, 29*mm),  # Standard label size
-        rightMargin=1*mm,
-        leftMargin=1*mm,
-        topMargin=1*mm,
-        bottomMargin=1*mm
-    )
-    
-    # Define styles
-    styles = getSampleStyleSheet()
-    barcode_style = ParagraphStyle(
-        'BarcodeStyle',
-        parent=styles['Normal'],
-        alignment=TA_CENTER,
-        fontSize=8,
-        leading=10
-    )
-    
-    elements = []
-    
-    # Get the barcode image
-    img_temp = BytesIO()
-    img = Image.open(barcode.barcode_image.path)
-    img.save(img_temp, format='PNG')
-    img_temp.seek(0)
-    
-    # Add barcode image sized for label
-    elements.append(Image(img_temp, width=58*mm, height=20*mm))
-    elements.append(Spacer(1, 1*mm))
-    
-    # Add barcode number in small text
-    elements.append(Paragraph(barcode.barcode_number, barcode_style))
-    
-    # Build the PDF with a frame
-    def add_border(canvas, doc):
-        canvas.setStrokeColorRGB(0.8, 0.8, 0.8)  # Light grey
-        canvas.setLineWidth(0.5)
-        canvas.rect(
-            doc.leftMargin,
-            doc.bottomMargin,
-            doc.width,
-            doc.height
+    try:
+        barcode = get_object_or_404(Barcode, id=barcode_id)
+        
+        # Create a response with appropriate headers for printing
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="barcode_{barcode.barcode_number}.pdf"'
+        
+        # Create PDF document optimized for label printing
+        doc = SimpleDocTemplate(
+            response,
+            pagesize=(62*mm, 29*mm),  # Standard label size
+            rightMargin=1*mm,
+            leftMargin=1*mm,
+            topMargin=1*mm,
+            bottomMargin=1*mm
         )
-    
-    doc.build(elements, onFirstPage=add_border, onLaterPages=add_border)
-    return response
+        
+        # Define styles
+        styles = getSampleStyleSheet()
+        barcode_style = ParagraphStyle(
+            'BarcodeStyle',
+            parent=styles['Normal'],
+            alignment=TA_CENTER,
+            fontSize=8,
+            leading=10
+        )
+        
+        elements = []
+        
+        try:
+            # Get the barcode image
+            img_temp = BytesIO()
+            img = PILImage.open(barcode.barcode_image.path)
+            img.save(img_temp, format='PNG')
+            img_temp.seek(0)
+            
+            # Add barcode image sized for label
+            barcode_image = RLImage(img_temp, width=58*mm, height=20*mm)
+            elements.append(barcode_image)
+            elements.append(Spacer(1, 1*mm))
+            
+            # Add barcode number in small text
+            elements.append(Paragraph(barcode.barcode_number, barcode_style))
+            
+            # Build the PDF with a frame
+            def add_border(canvas, doc):
+                canvas.setStrokeColorRGB(0.8, 0.8, 0.8)  # Light grey
+                canvas.setLineWidth(0.5)
+                canvas.rect(
+                    doc.leftMargin,
+                    doc.bottomMargin,
+                    doc.width,
+                    doc.height
+                )
+            
+            doc.build(elements, onFirstPage=add_border, onLaterPages=add_border)
+            return response
+            
+        except Exception as e:
+            messages.error(request, f'Error processing barcode image: {str(e)}')
+            return redirect('barcode_detail', pk=barcode_id)
+            
+    except Exception as e:
+        messages.error(request, f'Error generating PDF: {str(e)}')
+        return redirect('barcode_list')
 
 def assign_barcode(request, barcode_id):
     """View for assigning a pre-printed barcode to a TRF"""

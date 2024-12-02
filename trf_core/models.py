@@ -90,7 +90,8 @@ class Barcode(models.Model):
     """Model for individual barcodes (both pre-printed and generated)"""
     BARCODE_TYPE_CHOICES = [
         ('generated', 'Generated'),
-        ('pre_printed', 'Pre-printed')
+        ('pre_printed', 'Pre-printed'),
+        ('external', 'External')
     ]
     
     trf = models.ForeignKey(TRF, related_name='barcodes', on_delete=models.CASCADE, null=True, blank=True)
