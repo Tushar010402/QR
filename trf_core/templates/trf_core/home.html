@@ -11,45 +11,81 @@
         <p>Generate QR codes for TRFs and barcodes for sample tubes with ease.</p>
         <div class="mt-4">
             {% if user.is_authenticated %}
-                <a href="{% url 'trf_create' %}" class="btn btn-primary btn-lg me-3">
-                    <i class="fas fa-plus"></i> Create New TRF
-                </a>
+                <div class="row justify-content-center">
+                    <div class="col-md-6">
+                        <div class="d-grid gap-3">
+                            <a href="{% url 'trf_create' %}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-plus"></i> Create New TRF
+                            </a>
+                            <a href="{% url 'barcode_inventory_create' %}" class="btn btn-success btn-lg">
+                                <i class="fas fa-barcode"></i> Create Barcode Batch
+                            </a>
+                            <a href="{% url 'barcode_scanner' %}" class="btn btn-info btn-lg">
+                                <i class="fas fa-qrcode"></i> Scan Barcode
+                            </a>
+                        </div>
+                    </div>
+                </div>
             {% else %}
                 <a href="{% url 'login' %}" class="btn btn-primary btn-lg">
-                    <i class="fas fa-sign-in-alt"></i> Login to Create TRF
+                    <i class="fas fa-sign-in-alt"></i> Login to Start
                 </a>
             {% endif %}
-            <a href="{% url 'trf_list' %}" class="btn btn-outline-primary btn-lg">
-                <i class="fas fa-list"></i> View TRFs
-            </a>
         </div>
     </div>
 
     <div class="row mt-5">
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body text-center">
-                    <i class="fas fa-qrcode fa-3x mb-3 text-primary"></i>
-                    <h5 class="card-title">QR Code Generation</h5>
-                    <p class="card-text">Automatically generate QR codes for each TRF with unique identifiers.</p>
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-tasks"></i> Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="{% url 'trf_list' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-list"></i> View All TRFs
+                        </a>
+                        <a href="{% url 'barcode_inventory_list' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-boxes"></i> Manage Barcode Inventory
+                        </a>
+                        <a href="{% url 'available_barcodes' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-check-circle"></i> View Available Barcodes
+                        </a>
+                        <a href="{% url 'barcode_list' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-barcode"></i> All Barcodes
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body text-center">
-                    <i class="fas fa-barcode fa-3x mb-3 text-primary"></i>
-                    <h5 class="card-title">Barcode Management</h5>
-                    <p class="card-text">Create and manage barcodes for sample tubes linked to TRFs.</p>
+        
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> System Features</h5>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body text-center">
-                    <i class="fas fa-clock fa-3x mb-3 text-primary"></i>
-                    <h5 class="card-title">Expiry Tracking</h5>
-                    <p class="card-text">Track expiry dates for both TRFs and individual barcodes.</p>
+                <div class="card-body">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="fas fa-qrcode fa-2x text-primary me-3"></i>
+                        <div>
+                            <h6 class="mb-1">QR Code Generation</h6>
+                            <p class="mb-0 text-muted">Automatically generate QR codes for each TRF with unique identifiers.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="fas fa-barcode fa-2x text-success me-3"></i>
+                        <div>
+                            <h6 class="mb-1">Barcode Management</h6>
+                            <p class="mb-0 text-muted">Create and manage barcodes for sample tubes linked to TRFs.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-start">
+                        <i class="fas fa-clock fa-2x text-warning me-3"></i>
+                        <div>
+                            <h6 class="mb-1">Expiry Tracking</h6>
+                            <p class="mb-0 text-muted">Track expiry dates for both TRFs and individual barcodes.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
