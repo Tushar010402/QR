@@ -279,6 +279,61 @@ def process_scanned_barcode(request):
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
 
 @login_required
+def assign_barcode(request, barcode_id):
+    """View for assigning a barcode to a TRF"""
+    barcode = get_object_or_404(Barcode, id=barcode_id)
+    
+    if request.method == 'POST':
+        trf_id = request.POST.get('trf_id')
+        if not trf_id:
+            messages.error(request, 'TRF ID is required')
+            return redirect('barcode_detail', pk=barcode_id)
+        
+        try:
+            trf = get_object_or_404(TRF, id=trf_id)
+            
+            # Check if barcode is available
+            if not barcode.is_available:
+                messages.error(request, 'This barcode is already assigned')
+                return redirect('barcode_detail', pk=barcode_id)
+            
+            # Get additional sample information
+            sample_type = request.POST.get('sample_type')
+            volume = request.POST.get('volume')
+            collection_date = request.POST.get('collection_date')
+            notes = request.POST.get('notes')
+            
+            # Create tube data dictionary
+            tube_data = {
+                'sample_type': sample_type,
+                'volume': float(volume),
+                'collection_date': collection_date,
+                'notes': notes
+            }
+            
+            # Assign barcode to TRF
+            barcode.trf = trf
+            barcode.is_available = False
+            barcode.assigned_at = timezone.now()
+            barcode.assigned_by = request.user
+            barcode.tube_data = tube_data
+            barcode.save()
+            
+            messages.success(request, f'Barcode {barcode.barcode_number} successfully assigned to TRF {trf.trf_number}')
+            return redirect('trf_detail', pk=trf.id)
+            
+        except Exception as e:
+            messages.error(request, f'Error assigning barcode: {str(e)}')
+            return redirect('barcode_detail', pk=barcode_id)
+    
+    # GET request - show form with TRF selection
+    trfs = TRF.objects.filter(expiry_date__gte=timezone.now().date()).order_by('-created_at')
+    return render(request, 'trf_core/assign_barcode.html', {
+        'barcode': barcode,
+        'trfs': trfs
+    })
+
+@login_required
 def available_barcodes(request):
     """View for listing available pre-printed barcodes"""
     barcodes = Barcode.objects.filter(
