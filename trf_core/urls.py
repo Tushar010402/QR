@@ -25,6 +25,9 @@ urlpatterns = [
     path('barcode-inventory/create/', views.barcode_inventory_create, name='barcode_inventory_create'),
     path('available-barcodes/', views.available_barcodes, name='available_barcodes'),
     path('assign-barcode/<int:barcode_id>/', views.assign_barcode, name='assign_barcode'),
+    path('delete-batch/<int:batch_id>/', views.delete_barcode_batch, name='delete_barcode_batch'),
+    path('print-batch/<int:batch_id>/', views.print_barcode_batch, name='print_barcode_batch'),
+    path('print-barcode/<int:barcode_id>/', views.print_single_barcode, name='print_single_barcode'),
     
     # Barcode Scanner
     path('scanner/', views.barcode_scanner, name='barcode_scanner'),

@@ -59,12 +59,46 @@
                                 {% endwith %}
                             </td>
                             <td>
-                                <a href="{% url 'available_barcodes' %}?batch={{ inventory.batch_number }}" 
-                                   class="btn btn-sm btn-info">
-                                    <i class="fas fa-eye"></i> View Barcodes
-                                </a>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'available_barcodes' %}?batch={{ inventory.batch_number }}" 
+                                       class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                    <a href="{% url 'print_barcode_batch' inventory.id %}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="fas fa-print"></i> Print
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-danger" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteModal{{ inventory.id }}">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
                             </td>
                         </tr>
+                        
+                        <!-- Delete Modal -->
+                        <div class="modal fade" id="deleteModal{{ inventory.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Confirm Delete</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>Are you sure you want to delete batch {{ inventory.batch_number }}?</p>
+                                        <p class="text-warning">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                            This will delete all available barcodes in this batch. Barcodes that are already assigned to TRFs will not be deleted.
+                                        </p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <a href="{% url 'delete_barcode_batch' inventory.id %}" class="btn btn-danger">Delete</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     {% endfor %}
                 </tbody>
             </table>
