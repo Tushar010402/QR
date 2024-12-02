@@ -1,0 +1,147 @@
+{% extends 'trf_core/base.html' %}
+
+{% block title %}Public Barcode Lookup{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Barcode Lookup</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Search Form -->
+                    <form method="GET" class="mb-4">
+                        <div class="input-group">
+                            <input type="text" name="search" class="form-control" 
+                                   placeholder="Enter barcode number" 
+                                   value="{{ request.GET.search|default:'' }}">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Scanner Section -->
+                    <div class="mb-4">
+                        <h5>Scan Barcode</h5>
+                        <div id="interactive" class="viewport mb-3"></div>
+                        <div id="scanResult"></div>
+                    </div>
+
+                    <!-- Results Section -->
+                    {% if barcode %}
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">Barcode Information</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <table class="table">
+                                            <tr>
+                                                <th>Barcode Number:</th>
+                                                <td>{{ barcode.barcode_number }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>TRF Number:</th>
+                                                <td>{{ barcode.trf.trf_number }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Created At:</th>
+                                                <td>{{ barcode.created_at|date:"Y-m-d H:i" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Expiry Date:</th>
+                                                <td>
+                                                    {{ barcode.expiry_date }}
+                                                    <span class="badge {% if barcode.is_expired %}bg-danger{% else %}bg-success{% endif %}">
+                                                        {% if barcode.is_expired %}Expired{% else %}Valid{% endif %}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            {% if barcode.tube_data %}
+                                            <tr>
+                                                <th>Sample Type:</th>
+                                                <td>{{ barcode.tube_data.sample_type|default:"N/A" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Volume:</th>
+                                                <td>{{ barcode.tube_data.volume|default:"N/A" }} ml</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Collection Date:</th>
+                                                <td>{{ barcode.tube_data.collection_date|default:"N/A" }}</td>
+                                            </tr>
+                                            {% endif %}
+                                        </table>
+                                    </div>
+                                    <div class="col-md-4 text-center">
+                                        <img src="{{ barcode.barcode_image.url }}" alt="Barcode" class="img-fluid">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% elif search_performed %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            No barcode found with the provided number.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+<script>
+    let quaggaStarted = false;
+
+    function startQuagga() {
+        if (quaggaStarted) return;
+        
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: document.querySelector("#interactive"),
+                constraints: {
+                    facingMode: "environment"
+                },
+            },
+            decoder: {
+                readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader", "upc_reader"]
+            }
+        }, function(err) {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            quaggaStarted = true;
+            Quagga.start();
+        });
+
+        Quagga.onDetected(function(result) {
+            var code = result.codeResult.code;
+            window.location.href = `?search=${code}`;
+        });
+    }
+
+    function stopQuagga() {
+        if (quaggaStarted) {
+            Quagga.stop();
+            quaggaStarted = false;
+        }
+    }
+
+    // Start scanner
+    startQuagga();
+
+    // Stop scanner when leaving page
+    window.addEventListener('beforeunload', stopQuagga);
+</script>
+{% endblock %}

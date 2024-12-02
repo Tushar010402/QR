@@ -81,6 +81,23 @@ class TRFListView(ListView):
 def home(request):
     return render(request, 'trf_core/home.html')
 
+def public_portal(request):
+    """Public portal for barcode lookup without authentication"""
+    search_query = request.GET.get('search', '').strip()
+    search_performed = bool(search_query)
+    barcode = None
+    
+    if search_query:
+        try:
+            barcode = Barcode.objects.select_related('trf').get(barcode_number=search_query)
+        except Barcode.DoesNotExist:
+            pass
+    
+    return render(request, 'trf_core/public_portal.html', {
+        'barcode': barcode,
+        'search_performed': search_performed
+    })
+
 def trf_list(request):
     trfs = TRF.objects.all().order_by('-created_at')
     return render(request, 'trf_core/trf_list.html', {'trfs': trfs})

@@ -9,6 +9,7 @@ router.register(r'barcodes', views.BarcodeViewSet)
 urlpatterns = [
     path('api/', include(router.urls)),
     path('', views.home, name='home'),
+    path('lookup/', views.public_portal, name='public_portal'),
     
     # TRF URLs
     path('trfs/', views.trf_list, name='trf_list'),
