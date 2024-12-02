@@ -1,0 +1,157 @@
+{% extends 'trf_core/base.html' %}
+
+{% block title %}Public Barcode Scanner{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-qrcode"></i> Scan Barcode</h4>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <p class="lead">Scan or enter a barcode to view its information</p>
+                    </div>
+                    
+                    <form id="scanForm" class="mb-4">
+                        <div class="input-group">
+                            <input type="text" id="barcodeInput" class="form-control form-control-lg" 
+                                   placeholder="Scan or enter barcode" autofocus>
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="resultContainer" style="display: none;">
+                        <div class="card">
+                            <div class="card-body">
+                                <div id="barcodeResult">
+                                    <!-- Results will be displayed here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="errorContainer" class="alert alert-danger" style="display: none;">
+                        <!-- Error messages will be displayed here -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Instructions</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li>Place your cursor in the input field above</li>
+                        <li>Scan the barcode using a barcode scanner, or</li>
+                        <li>Type the barcode number manually and click Search</li>
+                        <li>The system will display the TRF and associated barcode information</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const scanForm = document.getElementById('scanForm');
+    const barcodeInput = document.getElementById('barcodeInput');
+    const resultContainer = document.getElementById('resultContainer');
+    const barcodeResult = document.getElementById('barcodeResult');
+    const errorContainer = document.getElementById('errorContainer');
+
+    scanForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const barcode = barcodeInput.value.trim();
+        
+        if (!barcode) {
+            showError('Please enter a barcode number');
+            return;
+        }
+
+        // Clear previous results and errors
+        resultContainer.style.display = 'none';
+        errorContainer.style.display = 'none';
+        barcodeResult.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+        resultContainer.style.display = 'block';
+
+        // Call the API to get barcode information
+        fetch(`/api/public/barcode/${barcode}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showError(data.error);
+                    resultContainer.style.display = 'none';
+                } else {
+                    displayResult(data);
+                }
+            })
+            .catch(error => {
+                showError('Error fetching barcode information. Please try again.');
+                resultContainer.style.display = 'none';
+            });
+    });
+
+    function displayResult(data) {
+        let html = `
+            <div class="text-center mb-4">
+                <div class="barcode-container p-3 bg-light rounded">
+                    <img src="${data.barcode_image}" alt="Barcode" class="img-fluid mb-2">
+                    <div class="barcode-number font-monospace">${data.barcode_number}</div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>TRF Information</h5>
+                    <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            TRF Number
+                            <span class="badge bg-primary">${data.trf_number}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Expiry Date
+                            <span class="badge bg-${data.is_expired ? 'danger' : 'success'}">
+                                ${data.expiry_date}
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h5>Associated Barcodes</h5>
+                    <div class="list-group">
+                        ${data.associated_barcodes.map(barcode => `
+                            <a href="#" onclick="document.getElementById('barcodeInput').value='${barcode}';scanForm.dispatchEvent(new Event('submit'));return false;" 
+                               class="list-group-item list-group-item-action">
+                                ${barcode}
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>`;
+        
+        barcodeResult.innerHTML = html;
+        resultContainer.style.display = 'block';
+    }
+
+    function showError(message) {
+        errorContainer.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        errorContainer.style.display = 'block';
+    }
+
+    // Auto-submit when barcode is scanned (usually ends with a return character)
+    barcodeInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            scanForm.dispatchEvent(new Event('submit'));
+        }
+    });
+});
+</script>
+{% endblock %}
