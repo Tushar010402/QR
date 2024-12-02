@@ -2,6 +2,11 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404, render, redirect
+from django.http import HttpResponse
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Image, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.generic import ListView
@@ -243,6 +248,97 @@ def available_barcodes(request):
     })
 
 @login_required
+@login_required
+def delete_barcode_batch(request, batch_id):
+    """View for deleting a barcode batch and its associated barcodes"""
+    batch = get_object_or_404(BarcodeInventory, id=batch_id)
+    
+    try:
+        # Delete associated barcodes that are still available (not assigned to any TRF)
+        Barcode.objects.filter(batch_number=batch.batch_number, is_available=True).delete()
+        
+        # Check if there are any assigned barcodes
+        assigned_barcodes = Barcode.objects.filter(batch_number=batch.batch_number, is_available=False).exists()
+        if assigned_barcodes:
+            messages.warning(request, 'Some barcodes from this batch are in use and were not deleted')
+        
+        # Delete the batch
+        batch.delete()
+        messages.success(request, 'Barcode batch deleted successfully')
+    except Exception as e:
+        messages.error(request, f'Error deleting batch: {str(e)}')
+    
+    return redirect('barcode_inventory_list')
+
+@login_required
+def print_barcode_batch(request, batch_id):
+    """View for printing all barcodes in a batch"""
+    batch = get_object_or_404(BarcodeInventory, id=batch_id)
+    barcodes = Barcode.objects.filter(batch_number=batch.batch_number)
+    
+    # Create a response with appropriate headers for printing
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="batch_{batch.batch_number}_barcodes.pdf"'
+    
+    # Create PDF document
+    doc = SimpleDocTemplate(response, pagesize=letter)
+    elements = []
+    
+    # Create a table for the barcodes
+    data = []
+    for barcode in barcodes:
+        # Get the barcode image
+        img_temp = BytesIO()
+        img = Image.open(barcode.barcode_image.path)
+        img.save(img_temp, format='PNG')
+        img_temp.seek(0)
+        
+        # Add barcode image and number to the table
+        data.append([Image(img_temp), barcode.barcode_number])
+    
+    # Create the table with 2 columns
+    table = Table(data, colWidths=[200, 200])
+    table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('PADDING', (0, 0), (-1, -1), 6),
+    ]))
+    
+    elements.append(table)
+    doc.build(elements)
+    return response
+
+@login_required
+def print_single_barcode(request, barcode_id):
+    """View for printing a single barcode"""
+    barcode = get_object_or_404(Barcode, id=barcode_id)
+    
+    # Create a response with appropriate headers for printing
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="barcode_{barcode.barcode_number}.pdf"'
+    
+    # Create PDF document
+    doc = SimpleDocTemplate(response, pagesize=letter)
+    elements = []
+    
+    # Get the barcode image
+    img_temp = BytesIO()
+    img = Image.open(barcode.barcode_image.path)
+    img.save(img_temp, format='PNG')
+    img_temp.seek(0)
+    
+    # Add barcode image and details to the PDF
+    elements.append(Image(img_temp))
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph(f"Barcode: {barcode.barcode_number}", getSampleStyleSheet()['Normal']))
+    
+    if barcode.batch_number:
+        elements.append(Paragraph(f"Batch: {barcode.batch_number}", getSampleStyleSheet()['Normal']))
+    
+    doc.build(elements)
+    return response
+
 def assign_barcode(request, barcode_id):
     """View for assigning a pre-printed barcode to a TRF"""
     barcode = get_object_or_404(Barcode, id=barcode_id)

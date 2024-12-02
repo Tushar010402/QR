@@ -67,6 +67,9 @@
                         <a href="{% url 'trf_detail' pk=barcode.trf.id %}" class="btn btn-info">
                             <i class="fas fa-file"></i> View Associated TRF
                         </a>
+                        <a href="{% url 'print_single_barcode' barcode.id %}" class="btn btn-primary">
+                            <i class="fas fa-print"></i> Print Barcode
+                        </a>
                     </div>
                 </div>
             </div>
