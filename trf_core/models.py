@@ -108,7 +108,18 @@ class Barcode(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.barcode_image:
-            code128 = Code128(self.barcode_number, writer=ImageWriter())
+            writer = ImageWriter()
+            writer.set_options({
+                'module_width': 0.2,  # Thin bar width in mm
+                'module_height': 15.0,  # Bar height in mm
+                'quiet_zone': 6.5,  # Quiet zone size in mm
+                'font_size': 10,
+                'text_distance': 5.0,  # Distance between barcode and text in mm
+                'dpi': 300,  # High DPI for better print quality
+                'center_text': True
+            })
+            
+            code128 = Code128(self.barcode_number, writer=writer)
             buffer = BytesIO()
             code128.write(buffer)
             self.barcode_image.save(f'barcode_{self.barcode_number}.png',
