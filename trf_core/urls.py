@@ -32,4 +32,8 @@ urlpatterns = [
     # Barcode Scanner
     path('scanner/', views.barcode_scanner, name='barcode_scanner'),
     path('api/process-scan/', views.process_scanned_barcode, name='process_scanned_barcode'),
+    
+    # Public Portal
+    path('public/', views.public_scanner, name='public_scanner'),
+    path('api/public/barcode/<str:barcode_number>/', views.public_barcode_info, name='public_barcode_info'),
 ]

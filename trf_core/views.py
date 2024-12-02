@@ -22,6 +22,10 @@ from datetime import datetime
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_http_methods
+from django.core.serializers import serialize
+from django.conf import settings
+import base64
 from io import BytesIO
 from PIL import Image as PILImage
 import barcode
@@ -295,7 +299,6 @@ def available_barcodes(request):
     })
 
 @login_required
-@login_required
 def delete_barcode_batch(request, batch_id):
     """View for deleting a barcode batch and its associated barcodes"""
     batch = get_object_or_404(BarcodeInventory, id=batch_id)
@@ -418,6 +421,57 @@ def print_barcode_batch(request, batch_id):
         
     return response
 
+def public_scanner(request):
+    """Public view for scanning barcodes"""
+    return render(request, 'trf_core/public_scanner.html')
+
+@require_http_methods(["GET"])
+def public_barcode_info(request, barcode_number):
+    """Public API endpoint for retrieving barcode information"""
+    try:
+        # Find the barcode
+        barcode_obj = get_object_or_404(Barcode, barcode_number=barcode_number)
+        
+        # Get TRF information
+        trf = barcode_obj.trf
+        if not trf:
+            return JsonResponse({
+                'error': 'This barcode is not assigned to any TRF'
+            })
+        
+        # Get associated barcodes (excluding the current one)
+        associated_barcodes = [b.barcode_number for b in trf.barcodes.all() 
+                             if b.barcode_number != barcode_number]
+        
+        # Generate barcode image
+        code128 = barcode.get_barcode_class('code128')
+        barcode_instance = code128(barcode_obj.barcode_number, writer=ImageWriter())
+        
+        # Save barcode to BytesIO
+        img_temp = BytesIO()
+        barcode_instance.write(img_temp)
+        img_temp.seek(0)
+        
+        # Convert image to base64
+        image_data = base64.b64encode(img_temp.getvalue()).decode()
+        
+        # Prepare the response data
+        response_data = {
+            'barcode_number': barcode_obj.barcode_number,
+            'barcode_image': f'data:image/png;base64,{image_data}',
+            'trf_number': trf.trf_number,
+            'expiry_date': trf.expiry_date.strftime('%Y-%m-%d'),
+            'is_expired': trf.is_expired,
+            'associated_barcodes': associated_barcodes
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=400)
+
 @login_required
 def print_single_barcode(request, barcode_id):
     """View for printing a single barcode"""
@@ -469,79 +523,4 @@ def print_single_barcode(request, barcode_id):
         messages.error(request, f'Error generating PDF: {str(e)}')
         return redirect('barcode_detail', pk=barcode_id)
     
-    return responsestyle = ParagraphStyle(
-        'BarcodeStyle',
-        parent=styles['Normal'],
-        alignment=TA_CENTER,
-        fontSize=8,
-        leading=10
-    )
-    
-    elements = []
-    
-    # Get the barcode image
-    img_temp = BytesIO()
-    img = Image.open(barcode.barcode_image.path)
-    img.save(img_temp, format='PNG')
-    img_temp.seek(0)
-    
-    # Add barcode image sized for label
-    elements.append(Image(img_temp, width=58*mm, height=20*mm))
-    elements.append(Spacer(1, 1*mm))
-    
-    # Add barcode number in small text
-    elements.append(Paragraph(barcode.barcode_number, barcode_style))
-    
-    # Build the PDF with a frame
-    def add_border(canvas, doc):
-        canvas.setStrokeColorRGB(0.8, 0.8, 0.8)  # Light grey
-        canvas.setLineWidth(0.5)
-        canvas.rect(
-            doc.leftMargin,
-            doc.bottomMargin,
-            doc.width,
-            doc.height
-        )
-    
-    doc.build(elements, onFirstPage=add_border, onLaterPages=add_border)
     return response
-
-def assign_barcode(request, barcode_id):
-    """View for assigning a pre-printed barcode to a TRF"""
-    barcode = get_object_or_404(Barcode, id=barcode_id)
-    
-    if request.method == 'POST':
-        trf_id = request.POST.get('trf_id')
-        tube_data = {
-            'sample_type': request.POST.get('sample_type'),
-            'volume': request.POST.get('volume'),
-            'collection_date': request.POST.get('collection_date'),
-            'notes': request.POST.get('notes')
-        }
-        
-        try:
-            trf = get_object_or_404(TRF, id=trf_id)
-            
-            if not barcode.is_available:
-                messages.error(request, 'This barcode is already in use')
-                return redirect('available_barcodes')
-            
-            barcode.trf = trf
-            barcode.is_available = False
-            barcode.assigned_at = timezone.now()
-            barcode.assigned_by = request.user
-            barcode.tube_data = tube_data
-            barcode.save()
-            
-            messages.success(request, 'Barcode successfully assigned to TRF')
-            return redirect('trf_detail', pk=trf.id)
-            
-        except Exception as e:
-            messages.error(request, f'Error assigning barcode: {str(e)}')
-            return redirect('available_barcodes')
-    
-    trfs = TRF.objects.filter(created_by=request.user).order_by('-created_at')
-    return render(request, 'trf_core/assign_barcode.html', {
-        'barcode': barcode,
-        'trfs': trfs
-    })
