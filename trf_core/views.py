@@ -191,14 +191,55 @@ def process_scanned_barcode(request):
             trf_id = data.get('trf_id')
             tube_data = data.get('tube_data', {})
 
-            barcode = get_object_or_404(Barcode, barcode_number=barcode_number)
-            trf = get_object_or_404(TRF, id=trf_id)
-
-            if not barcode.is_available:
+            # Validate barcode is not empty
+            if not barcode_number or not barcode_number.strip():
                 return JsonResponse({
                     'success': False,
-                    'message': 'This barcode is already in use'
+                    'message': 'Barcode number cannot be empty'
                 })
+            
+            # Check if barcode exists anywhere in the system
+            existing_barcode = Barcode.objects.filter(barcode_number=barcode_number).first()
+            if existing_barcode:
+                if existing_barcode.trf:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'This barcode is already assigned to TRF: {existing_barcode.trf.trf_number}'
+                    })
+                if not existing_barcode.is_available:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'This barcode is already in use'
+                    })
+                barcode = existing_barcode
+            else:
+                # Create new external barcode
+                trf = get_object_or_404(TRF, id=trf_id)
+                custom_expiry = data.get('expiry_date')
+                
+                try:
+                    expiry_date = datetime.strptime(custom_expiry, '%Y-%m-%d').date() if custom_expiry else trf.expiry_date
+                except ValueError:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Invalid expiry date format. Use YYYY-MM-DD'
+                    })
+                
+                # Additional validation for expiry date
+                if expiry_date < timezone.now().date():
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Expiry date cannot be in the past'
+                    })
+                
+                barcode = Barcode.objects.create(
+                    barcode_number=barcode_number,
+                    barcode_type='external',
+                    is_available=True,
+                    expiry_date=expiry_date
+                )
+            
+            trf = get_object_or_404(TRF, id=trf_id)
 
             # Assign barcode to TRF
             barcode.trf = trf
